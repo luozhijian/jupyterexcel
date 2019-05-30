@@ -30,7 +30,5 @@ setuptools.setup(
 
 print("\nPlease run the following commands to enable jupyterexcel:")
 print("  jupyter serverextension enable --py --sys-prefix jupyterexcel")
-print("  jupyter nbextension     enable --py --sys-prefix jupyterexcel")
-
 
 #EOF
