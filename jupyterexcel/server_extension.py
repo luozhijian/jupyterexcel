@@ -5,7 +5,7 @@ from notebook.utils import url_path_join
 from notebook.base.handlers import IPythonHandler, FilesRedirectHandler, path_regex
 from tornado import web
 
-from urllib import parse
+#from urllib import parse  #, not what version of ipython is using 
 
 TIMEOUT = 30
 saved_nbapp =None
@@ -21,9 +21,16 @@ class ExcelModeHandler(IPythonHandler):
         global cached_bc, content_last_modified_time
         rerun =False
         try :
+            self.add_header('Content-Type', 'application/json')
             self.log.info('Excel Mode: %s', self.request)
 #            uri='/Excel/TestingJupyter.ipynb?&functionName=addtwo&1=2&2=101'
-            query = parse.urlsplit(self.request.uri).query
+#            query = parse.urlsplit(self.request.uri).query  #parse in python 3.xx, avoid to use 
+            uris =self.request.uri.split('?')
+            if len(uris) >=2 :
+                query = uris[1]
+            else :
+                self.write('input is empty')
+                
             if cached_bc == None : 
                 rerun =True
                 cm = self.contents_manager
@@ -83,7 +90,7 @@ class ExcelModeHandler(IPythonHandler):
                     print("cells", cells)
                     print("first_cells", cells[0])
                     for cell in cells :
-                        if cell.cell_type == 'code' or cell.source.strip():
+                        if cell.cell_type == 'code' and cell.source.strip():
                             self.run_code(cached_bc, cell.source)
                             
                     invoke_command ='''
@@ -126,7 +133,6 @@ def run_function(query):
             r = str(ex)
                 
         # fix back button navigation
-        self.add_header('Content-Type', 'application/json')
         self.write(r)
        
 

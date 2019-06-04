@@ -1,9 +1,9 @@
 # jupyterexcel Package
 
-This is a package to make Jupyter .ipynb file a web api with json result. 
+This is a package to make Jupyter.ipynb file a web api with json result. 
 SourceCode in  [JupyterExcel](https://github.com/luozhijian/jupyterexcel)
 
-This web api can be connected with Excel addin which call this web api. Excel formula will generate a web api url and thorugh winhttp to get json result.
+This Jupyter Excel web api can be connected with Excel addin which call this web api. Excel formula will generate a web api url and thorugh winhttp to get json result.
 
 ## Installation 
 
@@ -13,11 +13,10 @@ then run
 
     jupyter serverextension enable --py --sys-prefix jupyterexcel
 
-## server setting
+## Server setting
 
 Please config [jupyter server](https://jupyter-notebook.readthedocs.io/en/stable/public_server.html) like the following:
 ```
-c.NotebookApp.nbserver_extensions = {'jupyterexcel': True}
 c.NotebookApp.token = 'ABCD'   #it is good to use token mode for web api call to pass through
 ```
 ## Example
@@ -29,6 +28,10 @@ http://localhost:8888/Excel/TestingJupyter.ipynb?token=ABCD&functionname=sum&1=1
 The following screenshot shows how excel works
 ![Jupyter Excel](ExcelFormulaScreen.png)
 
+## Future Development Plan
+1. Make jupyterexcel can take Post call for large data from Excel 
+2. Make Excel client side more easier to use, such as generate Excel formula proxy
+3. Possible add ribbon in Excel and call into Jupyter function with button click
 
 ## Reference 
-Load lots from [appmode](https://github.com/oschuett/appmode)
+read some code from [appmode](https://github.com/oschuett/appmode)
