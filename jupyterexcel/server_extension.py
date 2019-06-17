@@ -136,27 +136,31 @@ def run_function(query):
         self.write(r)
        
 
-    def run_code(self, bc, code,user_expressions=None):
+    def run_code(self, bc, code,user_expressions=None, waitForResult = True):
         # now we can run code.  This is done on the shell channel
         try:
             
 #            print ("running:", code)
 #            bc.execute(code, user_expressions={'output':'c'} )
-            bc.execute(code, user_expressions= user_expressions )
+            msg_execute = bc.execute(code, user_expressions= user_expressions )
 #            msg = bc.get_iopub_msg(block=True, timeout=1)
-#            print ('iomessage', msg)
-            
-            msg = bc.get_shell_msg(block=True, timeout=1)
-#            print ("msg", msg)
-            return msg
+#            print ('iomessage', msg_execute)
+            if waitForResult :
+#                execute_message_id = 
+                msg = bc.get_shell_msg(block=True)
+#                print ("msg", msg)
+                return msg
 
-        except :
-            raise            
+        except Exception as ex: 
+            self.log.error(ex)              
 
     
 #===============================================================================
 def load_jupyter_server_extension(nbapp):
     global saved_nbapp
+
+    # does not work, because init_webapp() happens before init_server_extensions()
+    #nbapp.extra_template_paths.append(tmpl_dir) # dows 
     nbapp.log.info("type of nbapp")
     nbapp.log.info(nbapp)
     saved_nbapp =nbapp
