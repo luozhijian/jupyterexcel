@@ -18,19 +18,28 @@ class ExcelModeHandler(IPythonHandler):
 
     @web.authenticated
     def get(self, path):
-        global cached_bc, content_last_modified_time
-        rerun =False
         try :
             self.add_header('Content-Type', 'application/json')
             self.log.info('Excel Mode: %s', self.request)
 #            uri='/Excel/TestingJupyter.ipynb?&functionName=addtwo&1=2&2=101'
 #            query = parse.urlsplit(self.request.uri).query  #parse in python 3.xx, avoid to use 
-            uris =self.request.uri.split('?')
-            if len(uris) >=2 :
-                query = uris[1]
+            locationOfQuestionMark = self.request.uri.find('?')
+            if locationOfQuestionMark >0 :
+                query = self.request.uri [locationOfQuestionMark+1 :]
+                
+                self.process_request (path, query)
             else :
                 self.write('input is empty')
                 
+        except :
+            raise
+            
+    def process_request(self, path, query) :
+#        check if we change the file 
+        global cached_bc, content_last_modified_time
+
+        rerun =False
+        try:                
             if cached_bc == None : 
                 rerun =True
                 cm = self.contents_manager
@@ -55,11 +64,9 @@ class ExcelModeHandler(IPythonHandler):
                     krnl= km.get_kernel(krnl_id)
                     cached_bc = krnl.blocking_client()
                     self.log.info("type of kernal: ",krnl)
-        except :
-            raise
+
         
-#        check if we change the file 
-        try:
+
             if not rerun :
                 model = cm.get(path, content=True)
                 if model['last_modified'] != content_last_modified_time :
@@ -121,7 +128,7 @@ def run_function(query):
                 raise
         try :         
             print ('start to get result: ', query)
-            msg=self.run_code(cached_bc, 'a=run_function("'+query+'")', user_expressions={'output':'a'} )
+            msg=self.run_code(cached_bc, 'jptxl_rvxyz=run_function("'+query+'")', user_expressions={'output':'jptxl_rvxyz'} )
             print(msg)
             if msg['content']['status'] == 'ok' :
                 r = msg['content']['user_expressions']['output']['data']
@@ -152,9 +159,27 @@ def run_function(query):
                 return msg
 
         except Exception as ex: 
-            self.log.error(ex)              
-
+            self.log.error(ex)     
+            
+    @web.authenticated
+    def post(self, path=''):
     
+        self.add_header('Content-Type', 'application/json')
+        self.log.info('Excel Mode Post: %s', self.request)
+
+        if not self.request.body:
+            self.write('input is empty')
+            return 
+        
+        # Do we need to call body.decode('utf-8') here?
+        body = self.request.body.strip().decode(u'utf-8')
+#        print(type(body))
+#        print(body)
+        self.log.info("post form data: %s" , body)
+        
+        self.process_request (path, body)
+        
+        
 #===============================================================================
 def load_jupyter_server_extension(nbapp):
     global saved_nbapp
