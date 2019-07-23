@@ -15,15 +15,17 @@ then run
 
 ## Server setting
 
-Please follow config [jupyter server](https://jupyter-notebook.readthedocs.io/en/stable/public_server.html) and following values:
+Please follow config [jupyter server](https://jupyter-notebook.readthedocs.io/en/stable/public_server.html) and change following values:
 ```
+c.NotebookApp.allow_origin = '*'  #allow any origin to access your server.  you can ignore it,if it is from local computer
 c.NotebookApp.token = 'ABCD'   #it is good to use token mode. When you send url with token, it will ask for password  
 c.NotebookApp.allow_remote_access = True  #if you like to set to access from other computer
+c.NotebookApp.iopub_data_rate_limit = 32000000  #it might be good to change to a high number, if you will pass large amount of data. (bytes/sec) Maximum rate at which stream output can be sent on iopub before
 ```
 ## Example
 The following screenshot shows the sample notebook file with a function sum. You can download TestingJupyter.ipynb or create your own.  The following is an instance I hosted in google cloud platform, you can open and add a function of yours.<br/>
-http://34.73.64.35:8888/Excel/TestingJupyter.ipynb?token=ABCD&functionname=sum&1=11&2=8&3=6 <br/>
-http://34.73.64.35:8888/notebooks/TestingJupyter.ipynb   please change 34.73.64.35 to your computer name or localhost
+http://34.67.24.96:8888/Excel/TestingJupyter.ipynb?token=ABCD&functionname=sum&1=11&2=8&3=6 <br/>
+http://34.67.24.96:8888/notebooks/TestingJupyter.ipynb   please change 34.67.24.96 to your computer name or localhost
 
 
 ![NotebookExample](NotebookExample.png)
