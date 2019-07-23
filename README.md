@@ -25,7 +25,7 @@ c.NotebookApp.iopub_data_rate_limit = 32000000  #it might be good to change to a
 ## Example
 The following screenshot shows the sample notebook file with a function sum. You can download TestingJupyter.ipynb or create your own.  The following is an instance I hosted in google cloud platform, you can open and add a function of yours.<br/>
 http://34.67.24.96:8888/Excel/TestingJupyter.ipynb?token=ABCD&functionname=sum&1=11&2=8&3=6 <br/>
-http://34.67.24.96:8888/notebooks/TestingJupyter.ipynb   please change 34.67.24.96 to your computer name or localhost
+http://34.67.24.96:8888/notebooks/TestingJupyter.ipynb?token=ABCD   please change 34.67.24.96 to your computer name or localhost
 
 
 ![NotebookExample](NotebookExample.png)
