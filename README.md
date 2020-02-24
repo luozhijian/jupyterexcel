@@ -3,6 +3,8 @@
 This is a package to make Jupyter.ipynb file a web api with json result. You can call Jupyter from Excel Formula or Ribbon CallBack Functions
 SourceCode in  [JupyterExcel](https://github.com/luozhijian/jupyterexcel)
 
+Before install, please download JupyterExcelAddin.xlsm in above link to try its formula and excel ribbon.   
+
 This Jupyter Excel web api can be connected with Excel addin which call this web api. Excel formula will generate a web api url and through winhttp to get json result. It now works Mac Excel by using [VBA-Web](https://github.com/VBA-tools/VBA-Web).
 
 ## Installation 
