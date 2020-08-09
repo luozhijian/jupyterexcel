@@ -65,22 +65,23 @@ class ExcelModeHandler(APIHandler):
     @web.authenticated
     @gen.coroutine     
     def post(self, path=''):
+        try :   
+            self.add_header('Content-Type', 'application/json')
+            self.log.info('Excel Mode Post: %s', self.request)
     
-        self.add_header('Content-Type', 'application/json')
-        self.log.info('Excel Mode Post: %s', self.request)
-
-        if not self.request.body:
-            self.write('input is empty')
-            return 
-        
-        # Do we need to call body.decode('utf-8') here?
-        body = self.request.body.strip().decode(u'utf-8')
-#        print(type(body))
-#        print(body)
-        self.log.info("post form data: %s" , body)
-        
-        self.process_request (path, body)
-        
+            if not self.request.body:
+                self.write('input is empty')
+                return 
+            
+            # Do we need to call body.decode('utf-8') here?
+            body = self.request.body.strip().decode(u'utf-8')
+    #        print(type(body))
+    #        print(body)
+            self.log.info("post form data: %s" , body)
+            
+            self.process_request (path, body)
+        except Exception as ex:
+            self.log.info(str(ex))         
             
     @gen.coroutine        
     def get_session(self, path, kernel_name=None, kernel_id=None, name='') : 
@@ -104,10 +105,9 @@ class ExcelModeHandler(APIHandler):
         
         return model
     
-    def get_server_type(self, krnl_dict) :
-        if krnl_dict :
-             server_name = krnl_dict['name'].lower()
-             if server_name and server_name.startswith('r') :
+    def get_server_type(self, query) :
+        if query :
+            if 'language=R' in query :
                  return ServerType.R
         return ServerType.PYTHON
         
@@ -135,7 +135,7 @@ class ExcelModeHandler(APIHandler):
                 one_session = yield self.get_session(path_without_slash)
                 self.log.info( one_session)
                 krnl_model = one_session['kernel']
-                server_type =self.get_server_type(krnl_model)
+                server_type =self.get_server_type(query)
                 krnl_id =krnl_model['id']
                 self.log.info('find %s kernel id %s ' % (str(server_type), krnl_id ) )
                 krnl= saved_nbapp.kernel_manager.get_kernel(krnl_id)
@@ -264,7 +264,7 @@ class ExcelModeHandler(APIHandler):
 #                self.log.debug (msg)      
                 msg_type = msg['msg_type']
                 if msg['parent_header'].get('msg_id') == msg_id and  ( msg_type== 'display_data'  or msg_type == 'error' or  (not requir_display_data and  msg_type == 'status' and msg['content']['execution_state'] == 'idle' ) ):
-#                    self.log.info (msg)      
+                    self.log.info (msg)      
                     break
             bc.get_shell_msg(block=True)  # ignore message
                  
@@ -272,7 +272,9 @@ class ExcelModeHandler(APIHandler):
 
         except Exception as ex: 
             self.log.error(ex)     
-        
+
+
+    
     #--------------------------------------------------------------------------
     #  Run code which do not care about result or for Python style
     #      For python, it will change max_seq_length to 0 to ge all array result, then it will restore it 
@@ -286,13 +288,13 @@ class ExcelModeHandler(APIHandler):
                     bc.get_shell_msg(block=True)
             self.log.info(code)    
             msg=bc.execute(code, user_expressions= user_expressions, allow_stdin =False, silent =True, store_history=False )
-            self.log.info(msg)
+            #self.log.info(msg)
 #            msg = bc.get_iopub_msg(block=True, timeout=1)
 #            print ('iomessage', msg_execute)
             if waitForResult :
 #                execute_message_id = 
                 msg = bc.get_shell_msg(block=True)
-                self.log.info(msg)
+                #self.log.info(msg)
                 if server_type == ServerType.PYTHON :     # for python ,we will make sure, we pass out full array
                     bc.execute('get_ipython().config.PlainTextFormatter.max_seq_length =jptxl_backup_max_seq_length', user_expressions= None, allow_stdin =False, silent =True, store_history=False )
                     bc.get_shell_msg(block=True) # clean up queue
@@ -408,3 +410,5 @@ def load_jupyter_server_extension(nbapp):
     nbapp.log.info("Jupyter Excel server extension loaded.")
     nbapp.log.info(web_app)
 
+
+    
