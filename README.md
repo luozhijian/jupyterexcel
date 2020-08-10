@@ -1,6 +1,6 @@
 ## jupyterexcel Package
 
-This is a package to make Jupyter.ipynb file a web api with json result. You can call Jupyter from Excel Formula or Ribbon CallBack Functions
+This is a python package to make Jupyter.ipynb file a web api with json result. You can call Jupyter from Excel Formula or Ribbon CallBack Functions
 SourceCode in  [JupyterExcel](https://github.com/luozhijian/jupyterexcel)
 
 Before install, please download [JupyterExcelTesting.xlsm](https://github.com/luozhijian/jupyterexcel/blob/master/JupyterExcelTesting.xlsm) to try its formula function and excel ribbon.  If you think it works, you can modify the url in the sheet to your jupyter page and save it as "Addin" file.
@@ -40,10 +40,10 @@ http://www.jupyterexcel.com:8888/notebooks/TestingJupyter.ipynb?token=ABCD   ple
 ![NotebookExample](https://github.com/luozhijian/jupyterexcel/blob/master/NotebookExample.png)
 
 The following screenshot shows how excel Formula works. 
-![Jupyter Excel](https://github.com/luozhijian/jupyterexcel/blob/master/ExcelFormulaScreenFull.png)
+![Jupyter Excel](https://github.com/luozhijian/jupyterexcel/raw/master/ExcelFormulaScreenFull.png)
 
 The following screenshot Shows how Ribbon Call Back function works
-![Jupyter Ribbon CallBack](https://github.com/luozhijian/jupyterexcel/blob/master/ExcelRibbonScreen.png)
+![Jupyter Ribbon CallBack](https://github.com/luozhijian/jupyterexcel/raw/master/ExcelRibbonScreen.png)
  
 
 ## Future Development Plan
