@@ -37,7 +37,7 @@ http://www.jupyterexcel.com:8888/Excel/TestingJupyter.ipynb?token=ABCD&functionn
 http://www.jupyterexcel.com:8888/notebooks/TestingJupyter.ipynb?token=ABCD   please change 34.67.24.96 to your computer name or localhost
 
 
-![NotebookExample](https://github.com/luozhijian/jupyterexcel/blob/master/NotebookExample.png)
+![NotebookExample](https://github.com/luozhijian/jupyterexcel/raw/master/NotebookExample.png)
 
 The following screenshot shows how excel Formula works. 
 ![Jupyter Excel](https://github.com/luozhijian/jupyterexcel/raw/master/ExcelFormulaScreenFull.png)

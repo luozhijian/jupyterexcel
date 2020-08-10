@@ -12,7 +12,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="jupyterexcel",
-    version="0.0.10",
+    version="0.0.11",
     author="Jim Luo",
     author_email="luozhijian@gmail.com",
     description="A python Jupyter extensions to make notebooks web api for Excel to call using UDF forumla or Ribbon Callback. Jupyter Excel, Python Excel",
