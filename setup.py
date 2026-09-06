@@ -20,16 +20,11 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/luozhijian/jupyterexcel",
     packages=setuptools.find_packages(),
+    package_data={"jupyterexcel": ["addin_template/*", "addin_template/assets/*"]},
+    data_files=[("etc/jupyter/jupyter_server_config.d", ["jupyterexcel.json"])],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
 )
-
-
-print("\nPlease run the following commands to enable jupyterexcel:")
-print("  jupyter serverextension enable --py --sys-prefix jupyterexcel")
-print("  also follow up the steps to config server and use token to link to jupyter pages")
-
-#EOF

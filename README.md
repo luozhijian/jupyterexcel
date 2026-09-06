@@ -1,5 +1,36 @@
 ## jupyterexcel Package
 
+### Office.js add-in generation
+
+When the JupyterExcel server extension starts, it scans every notebook visible
+to the current Jupyter user. Functions decorated with `jupyter_function` are
+published as Excel custom functions; functions decorated with
+`ribbon_function` remain separate and are shown in the JupyterExcel task pane.
+
+```python
+from jupyterexcel import jupyter_function, ribbon_function
+
+@jupyter_function(name="ADD", description="Add two numbers",
+                  parameter_types={"a": "number", "b": "number"},
+                  result_type="number")
+def add(a, b=0):
+    return a + b
+```
+
+The generated manifest is served at
+`https://<jupyter-host>:<port>/manifest.xml` (with a compatibility alias at
+`/jupyterexcel/manifest.xml`). Its JavaScript,
+metadata, and HTML URLs point back to the same Jupyter server. To publish a
+different externally reachable URL, set this before starting Jupyter:
+
+```powershell
+$env:JUPYTEREXCEL_PUBLIC_URL = "https://localhost:3000"
+```
+
+Use HTTPS with a certificate trusted by the computer running Excel. Restart
+Excel (or clear its add-in cache) after decorated functions change because
+Excel caches custom-function metadata.
+
 This is a python package to make Jupyter.ipynb file a web api with json result. You can call Jupyter from Excel Formula or Ribbon CallBack Functions
 SourceCode in  [JupyterExcel](https://github.com/luozhijian/jupyterexcel)
 

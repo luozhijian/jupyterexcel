@@ -12,6 +12,48 @@ import inspect
 #a dictionary to save all cacll back functions
 
 jupyterexcel_ribbon_functions={}
+jupyterexcel_functions = {}
+
+
+def jupyter_function(_function=None, *, name=None, description=None,
+                     result_type="any", parameter_types=None):
+    """Mark a notebook function as an Excel custom function.
+
+    The decorator works both as ``@jupyter_function`` and as
+    ``@jupyter_function(name="ADD", description="Add two values")``.
+    Metadata is attached to the function as well as registered in the current
+    kernel.  The server's notebook scanner reads the decorator from source, so
+    notebooks do not need to be executed merely to build the Office manifest.
+    """
+    def decorate(function):
+        function_name = function.__name__
+        signature = inspect.signature(function)
+        types = parameter_types or {}
+        metadata = {
+            "id": (name or function_name).upper(),
+            "name": (name or function_name).upper(),
+            "description": description or inspect.getdoc(function) or function_name,
+            "result_type": result_type,
+            "parameters": [
+                {
+                    "name": parameter_name,
+                    "type": types.get(parameter_name, "any"),
+                    "optional": parameter.default is not inspect.Parameter.empty,
+                }
+                for parameter_name, parameter in signature.parameters.items()
+            ],
+        }
+        function.__jupyterexcel_function__ = metadata
+        jupyterexcel_functions[function_name] = metadata
+        return function
+
+    if _function is None:
+        return decorate
+    return decorate(_function)
+
+
+def get_jupyter_functions():
+    return list(jupyterexcel_functions.values())
 
 
 def ribbon_function(name, return_value, **kwargs):

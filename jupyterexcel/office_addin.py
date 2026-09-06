@@ -1,0 +1,203 @@
+"""Generate and serve an Office.js add-in from decorated Jupyter notebooks."""
+
+import ast
+import json
+import os
+from pathlib import Path
+from dataclasses import dataclass, field
+from html import escape
+from urllib.parse import quote
+
+
+CUSTOM_FUNCTION_SCHEMA = (
+    "https://developer.microsoft.com/json-schemas/office-js/"
+    "custom-functions.schema.json"
+)
+
+
+@dataclass
+class Parameter:
+    name: str
+    type: str = "any"
+    optional: bool = False
+    description: str = ""
+
+
+@dataclass
+class NotebookFunction:
+    notebook: str
+    python_name: str
+    excel_name: str
+    description: str
+    result_type: str = "any"
+    parameters: list = field(default_factory=list)
+    kind: str = "jupyter"
+
+    @property
+    def function_id(self):
+        # Office IDs allow only letters, numbers, and periods.
+        value = "".join(c if (c.isascii() and c.isalnum()) or c == "." else "." for c in self.excel_name)
+        return value.upper().strip(".")
+
+
+def _literal(node, default=None):
+    try:
+        return ast.literal_eval(node)
+    except (ValueError, TypeError):
+        return default
+
+
+def _decorator_name(node):
+    target = node.func if isinstance(node, ast.Call) else node
+    if isinstance(target, ast.Name):
+        return target.id
+    if isinstance(target, ast.Attribute):
+        return target.attr
+    return None
+
+
+def _function_from_ast(node, decorator, notebook):
+    kind = _decorator_name(decorator)
+    if kind not in {"jupyter_function", "ribbon_function"}:
+        return None
+    call = decorator if isinstance(decorator, ast.Call) else None
+    keywords = {item.arg: _literal(item.value) for item in (call.keywords if call else [])}
+    positional = [_literal(item) for item in (call.args if call else [])]
+    if kind == "ribbon_function":
+        excel_name = positional[0] if positional else keywords.get("name", node.name)
+        description = "Ribbon command: " + str(excel_name)
+    else:
+        excel_name = keywords.get("name") or (positional[0] if positional else node.name)
+        description = keywords.get("description") or ast.get_docstring(node) or node.name
+    parameter_types = keywords.get("parameter_types") or {}
+    defaults_start = len(node.args.args) - len(node.args.defaults)
+    parameters = []
+    for index, argument in enumerate(node.args.args):
+        parameters.append(Parameter(
+            name=argument.arg,
+            type=parameter_types.get(argument.arg, "any"),
+            optional=index >= defaults_start,
+            description=argument.arg,
+        ))
+    return NotebookFunction(
+        notebook=notebook,
+        python_name=node.name,
+        excel_name=str(excel_name),
+        description=str(description),
+        result_type=str(keywords.get("result_type") or "any"),
+        parameters=parameters,
+        kind="ribbon" if kind == "ribbon_function" else "jupyter",
+    )
+
+
+def scan_notebook(notebook, path):
+    found = []
+    for cell in notebook.get("cells", []):
+        if cell.get("cell_type") != "code":
+            continue
+        source = cell.get("source", "")
+        if isinstance(source, list):
+            source = "".join(source)
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                item = _function_from_ast(node, decorator, path)
+                if item:
+                    found.append(item)
+                    break
+    return found
+
+
+def discover_notebooks(contents_manager):
+    """Find decorated functions in all notebooks visible to this server user."""
+    functions = []
+
+    def visit(path=""):
+        model = contents_manager.get(path, content=True)
+        if model.get("type") == "notebook":
+            functions.extend(scan_notebook(model["content"], model["path"]))
+            return
+        if model.get("type") == "directory":
+            for child in model.get("content") or []:
+                if child.get("type") in {"directory", "notebook"}:
+                    visit(child["path"])
+
+    visit("")
+    seen = set()
+    unique = []
+    for item in functions:
+        key = item.function_id
+        if item.kind == "jupyter" and key in seen:
+            raise ValueError("Duplicate @jupyter_function Excel name: %s" % key)
+        if item.kind == "jupyter":
+            seen.add(key)
+        unique.append(item)
+    return unique
+
+
+def functions_metadata(functions):
+    entries = []
+    for item in functions:
+        if item.kind != "jupyter":
+            continue
+        entries.append({
+            "id": item.function_id,
+            "name": item.function_id,
+            "description": item.description,
+            "parameters": [
+                {
+                    "name": parameter.name,
+                    "description": parameter.description,
+                    "type": parameter.type,
+                    **({"optional": True} if parameter.optional else {}),
+                }
+                for parameter in item.parameters
+            ],
+            "result": {"type": item.result_type, "dimensionality": "scalar"},
+        })
+    return {"$schema": CUSTOM_FUNCTION_SCHEMA, "functions": entries}
+
+
+def functions_javascript(functions, base_url, template_dir=None):
+    """Bundle reusable runtime code and notebook-specific registrations."""
+    templates = Path(template_dir) if template_dir else Path(__file__).parent / 'addin_template'
+    runtime = (templates / 'functions-runtime.js').read_text(encoding='utf-8').rstrip()
+    template = (templates / 'functions.js').read_text(encoding='utf-8')
+    registrations = []
+    for item in (f for f in functions if f.kind == 'jupyter'):
+        endpoint = base_url.rstrip('/') + '/Excel/' + quote(item.function_id, safe='')
+        registrations.append('CustomFunctions.associate(%s, (...args) => jupyterExcelCall(%s, args));' % (json.dumps(item.function_id), json.dumps(endpoint)))
+    for marker in ('{{FUNCTIONS_RUNTIME}}', '{{FUNCTION_REGISTRATIONS}}'):
+        if template.count(marker) != 1:
+            raise ValueError('functions.js template must contain exactly one ' + marker)
+    return template.replace('{{FUNCTIONS_RUNTIME}}', runtime).replace('{{FUNCTION_REGISTRATIONS}}', '\n'.join(registrations))
+
+
+def manifest_xml(base_url, namespace="JUPYTER"):
+    base = escape(base_url.rstrip("/"), quote=True)
+    return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
+  <Id>ecd32651-9adc-4ba5-9e5e-3643d95d9b17</Id><Version>1.0.0.0</Version><ProviderName>JupyterExcel</ProviderName><DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="JupyterExcel"/><Description DefaultValue="Use decorated Jupyter functions in Excel."/><IconUrl DefaultValue="{base}/static/base/images/favicon.ico"/><HighResolutionIconUrl DefaultValue="{base}/static/base/images/favicon.ico"/><SupportUrl DefaultValue="{base}/taskpane.html"/>
+  <AppDomains><AppDomain>{base}</AppDomain></AppDomains><Hosts><Host Name="Workbook"/></Hosts><Requirements><Sets DefaultMinVersion="1.1"><Set Name="CustomFunctionsRuntime" MinVersion="1.1"/></Sets></Requirements><DefaultSettings><SourceLocation DefaultValue="{base}/taskpane.html"/></DefaultSettings><Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0"><Hosts><Host xsi:type="Workbook"><AllFormFactors><ExtensionPoint xsi:type="CustomFunctions"><Script><SourceLocation resid="Functions.Script.Url"/></Script><Page><SourceLocation resid="Functions.Page.Url"/></Page><Metadata><SourceLocation resid="Functions.Metadata.Url"/></Metadata><Namespace resid="Functions.Namespace"/></ExtensionPoint></AllFormFactors><DesktopFormFactor><FunctionFile resid="Commands.Url"/><ExtensionPoint xsi:type="PrimaryCommandSurface"><OfficeTab id="TabHome"><Group id="CommandsGroup"><Label resid="CommandsGroup.Label"/><Control xsi:type="Button" id="TaskpaneButton"><Label resid="TaskpaneButton.Label"/><Supertip><Title resid="TaskpaneButton.Label"/><Description resid="TaskpaneButton.Tooltip"/></Supertip><Action xsi:type="ShowTaskpane"><TaskpaneId>JupyterExcel.Taskpane</TaskpaneId><SourceLocation resid="Taskpane.Url"/></Action></Control></Group></OfficeTab></ExtensionPoint></DesktopFormFactor></Host></Hosts>
+  <Resources><bt:Urls><bt:Url id="Functions.Script.Url" DefaultValue="{base}/public/functions.js"/><bt:Url id="Functions.Metadata.Url" DefaultValue="{base}/public/functions.json"/><bt:Url id="Functions.Page.Url" DefaultValue="{base}/public/functions.html"/><bt:Url id="Commands.Url" DefaultValue="{base}/commands.html"/><bt:Url id="Taskpane.Url" DefaultValue="{base}/taskpane.html"/></bt:Urls><bt:ShortStrings><bt:String id="Functions.Namespace" DefaultValue="{namespace}"/><bt:String id="CommandsGroup.Label" DefaultValue="JupyterExcel"/><bt:String id="TaskpaneButton.Label" DefaultValue="JupyterExcel"/></bt:ShortStrings><bt:LongStrings><bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open JupyterExcel"/></bt:LongStrings></Resources></VersionOverrides>
+</OfficeApp>""".format(base=base, namespace=escape(namespace, quote=True))
+
+
+def public_url(server_app):
+    configured = os.environ.get("JUPYTEREXCEL_PUBLIC_URL")
+    if configured:
+        return configured.rstrip("/")
+    scheme = "https" if getattr(server_app, "certfile", "") else "http"
+    host = getattr(server_app, "ip", "") or "localhost"
+    if host in {"0.0.0.0", "::", "*"}:
+        host = "localhost"
+    port = getattr(server_app, "port", 8888)
+    base_path = server_app.web_app.settings.get("base_url", "/").strip("/")
+    return "%s://%s:%s%s" % (scheme, host, port, ("/" + base_path) if base_path else "")
