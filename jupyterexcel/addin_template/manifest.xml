@@ -4,8 +4,8 @@
   <Version>1.0.0.0</Version>
   <ProviderName>www.jupyterexcel.com</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="MyJavascriptAddin"/>
-  <Description DefaultValue="Write your own Excel functions in JavaScript."/>
+  <DisplayName DefaultValue="JupyterExcelAddin"/>
+  <Description DefaultValue="Write your own Excel functions in Jupyter."/>
   <IconUrl DefaultValue="https://localhost/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost/assets/icon-64.png"/>
   <SupportUrl DefaultValue="https://www.jupyterexcel.com/help"/>
@@ -25,6 +25,11 @@
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.1">
+        <bt:Set Name="DialogApi" MinVersion="1.2"/>
+      </bt:Sets>
+    </Requirements>
     <Hosts>
       <Host xsi:type="Workbook">
         <AllFormFactors>
@@ -57,11 +62,11 @@
                   <bt:Image size="32" resid="Icon.32x32"/>
                   <bt:Image size="80" resid="Icon.80x80"/>
                 </Icon>
-                <Control xsi:type="Button" id="TaskpaneButton">
-                  <Label resid="TaskpaneButton.Label"/>
+                <Control xsi:type="Button" id="ShowDebugLogButton">
+                  <Label resid="ShowDebugLogButton.Label"/>
                   <Supertip>
-                    <Title resid="TaskpaneButton.Label"/>
-                    <Description resid="TaskpaneButton.Tooltip"/>
+                    <Title resid="ShowDebugLogButton.Label"/>
+                    <Description resid="ShowDebugLogButton.Tooltip"/>
                   </Supertip>
                   <Icon>
                     <bt:Image size="16" resid="Icon.16x16"/>
@@ -70,7 +75,22 @@
                   </Icon>
                   <Action xsi:type="ShowTaskpane">
                     <TaskpaneId>ButtonId1</TaskpaneId>
-                    <SourceLocation resid="Taskpane.Url"/>
+                    <SourceLocation resid="DebugLogTaskpane.Url"/>
+                  </Action>
+                </Control>
+                <Control xsi:type="Button" id="InputAccessTokenButton">
+                  <Label resid="InputAccessTokenButton.Label"/>
+                  <Supertip>
+                    <Title resid="InputAccessTokenButton.Label"/>
+                    <Description resid="InputAccessTokenButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>openAccessTokenDialog</FunctionName>
                   </Action>
                 </Control>
               </Group>
@@ -87,21 +107,24 @@
       </bt:Images>
       <bt:Urls>
         <bt:Url id="Functions.Script.Url" DefaultValue="https://localhost/{{FUNCTIONS_SCRIPT}}"/>
-        <bt:Url id="Functions.Metadata.Url" DefaultValue="https://localhost/{{FUNCTIONS_SCRIPT}}on"/>
+        <bt:Url id="Functions.Metadata.Url" DefaultValue="https://localhost/functions.json"/>
         <bt:Url id="Functions.Page.Url" DefaultValue="https://localhost/functions.html"/>
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://go.microsoft.com/fwlink/?LinkId=276812"/>
         <bt:Url id="Commands.Url" DefaultValue="https://localhost/commands.html"/>
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost/taskpane.html"/>
+        <bt:Url id="DebugLogTaskpane.Url" DefaultValue="https://localhost/taskpane.html?section=debug-log"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="Functions.Namespace" DefaultValue="jupyter"/>
         <bt:String id="GetStarted.Title" DefaultValue="Get started with your sample add-in!"/>
         <bt:String id="CommandsGroup.Label" DefaultValue="Commands Group"/>
-        <bt:String id="TaskpaneButton.Label" DefaultValue="Show Task Pane"/>
+        <bt:String id="ShowDebugLogButton.Label" DefaultValue="Show Debug Log"/>
+        <bt:String id="InputAccessTokenButton.Label" DefaultValue="Input Access Token"/>
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="Your sample add-in loaded successfully. Go to the HOME tab and click the 'Show Task Pane' button to get started."/>
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show a Task Pane"/>
+        <bt:String id="ShowDebugLogButton.Tooltip" DefaultValue="Open the task pane and display the Debug Log."/>
+        <bt:String id="InputAccessTokenButton.Tooltip" DefaultValue="Verify and save a Jupyter access token."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

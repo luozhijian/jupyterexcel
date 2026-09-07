@@ -7,6 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from html import escape
 from urllib.parse import quote
+from .metadata import validate_metadata
 
 
 CUSTOM_FUNCTION_SCHEMA = (
@@ -21,6 +22,8 @@ class Parameter:
     type: str = "any"
     optional: bool = False
     description: str = ""
+    dimensionality: str = "scalar"
+    repeating: bool = False
 
 
 @dataclass
@@ -32,6 +35,7 @@ class NotebookFunction:
     result_type: str = "any"
     parameters: list = field(default_factory=list)
     kind: str = "jupyter"
+    result_dimensionality: str = "scalar"
 
     @property
     def function_id(self):
@@ -69,22 +73,47 @@ def _function_from_ast(node, decorator, notebook):
     else:
         excel_name = keywords.get("name") or (positional[0] if positional else node.name)
         description = keywords.get("description") or ast.get_docstring(node) or node.name
-    parameter_types = keywords.get("parameter_types") or {}
-    defaults_start = len(node.args.args) - len(node.args.defaults)
+    arguments = node.args.posonlyargs + node.args.args
+    if kind == 'jupyter_function' and call:
+        for keyword in call.keywords:
+            if keyword.arg in {'parameter_types', 'parameter_dimensionality', 'result_type', 'result_dimensionality'}:
+                try:
+                    ast.literal_eval(keyword.value)
+                except (ValueError, TypeError):
+                    raise ValueError(f'{notebook}: {node.name}: {keyword.arg} must be a literal for static discovery.') from None
+    parameter_types = keywords.get('parameter_types')
+    parameter_dimensionality = keywords.get('parameter_dimensionality')
+    result_type = keywords.get('result_type', 'any')
+    result_dimensionality = keywords.get('result_dimensionality', 'scalar')
+    if kind == 'jupyter_function':
+        validate_metadata([arg.arg for arg in arguments + node.args.kwonlyargs + ([node.args.vararg] if node.args.vararg else [])],
+                          parameter_types, parameter_dimensionality, result_type, result_dimensionality)
+    parameter_types = parameter_types or {}
+    parameter_dimensionality = parameter_dimensionality or {}
+    if kind == 'jupyter_function' and node.args.vararg and (node.args.kwonlyargs or node.args.kwarg):
+        raise ValueError('Repeating worksheet parameters must be last; keyword parameters are unsupported.')
+    defaults_start = len(arguments) - len(node.args.defaults)
     parameters = []
-    for index, argument in enumerate(node.args.args):
+    for index, argument in enumerate(arguments):
         parameters.append(Parameter(
             name=argument.arg,
             type=parameter_types.get(argument.arg, "any"),
+            dimensionality=parameter_dimensionality.get(argument.arg, "scalar"),
             optional=index >= defaults_start,
             description=argument.arg,
         ))
+    if node.args.vararg:
+        arg = node.args.vararg.arg
+        parameters.append(Parameter(name=arg, type=parameter_types.get(arg, 'any'),
+                                    dimensionality=parameter_dimensionality.get(arg, 'scalar'),
+                                    description=arg, repeating=True))
     return NotebookFunction(
         notebook=notebook,
         python_name=node.name,
         excel_name=str(excel_name),
         description=str(description),
-        result_type=str(keywords.get("result_type") or "any"),
+        result_type=result_type,
+        result_dimensionality=result_dimensionality,
         parameters=parameters,
         kind="ribbon" if kind == "ribbon_function" else "jupyter",
     )
@@ -154,28 +183,44 @@ def functions_metadata(functions):
                     "name": parameter.name,
                     "description": parameter.description,
                     "type": parameter.type,
+                    "dimensionality": parameter.dimensionality,
+                    **({"repeating": True} if parameter.repeating else {}),
                     **({"optional": True} if parameter.optional else {}),
                 }
                 for parameter in item.parameters
             ],
-            "result": {"type": item.result_type, "dimensionality": "scalar"},
+            "result": {"type": item.result_type, "dimensionality": item.result_dimensionality},
         })
     return {"$schema": CUSTOM_FUNCTION_SCHEMA, "functions": entries}
 
 
-def functions_javascript(functions, base_url, template_dir=None):
+def client_configuration(base_url, hub_user=None):
+    """Public API connection information only; credentials are supplied at runtime."""
+    base = base_url.rstrip('/')
+    hub_base = base.split('/user/', 1)[0]
+    return {'apiBase': base, 'hubUser': hub_user, 'hubApiUrl': hub_base + '/hub/api/user'}
+
+
+def functions_javascript(functions, base_url, template_dir=None, hub_user=None):
     """Bundle reusable runtime code and notebook-specific registrations."""
     templates = Path(template_dir) if template_dir else Path(__file__).parent / 'addin_template'
-    runtime = (templates / 'functions-runtime.js').read_text(encoding='utf-8').rstrip()
+    runtime = (templates / 'jupyter-runtime.js').read_text(encoding='utf-8').rstrip()
     template = (templates / 'functions.js').read_text(encoding='utf-8')
     registrations = []
     for item in (f for f in functions if f.kind == 'jupyter'):
         endpoint = base_url.rstrip('/') + '/Excel/' + quote(item.function_id, safe='')
-        registrations.append('CustomFunctions.associate(%s, (...args) => jupyterExcelCall(%s, args));' % (json.dumps(item.function_id), json.dumps(endpoint)))
+        # Office may append an invocation object after the worksheet parameters.
+        arguments = f'args.slice(0, {len(item.parameters)})'
+        if item.parameters and item.parameters[-1].repeating:
+            index = len(item.parameters) - 1
+            arguments = f'args.slice(0, {index}).concat(args[{index}] || [])'
+        registrations.append('CustomFunctions.associate(%s, (...args) => jupyterExcelCall(%s, %s));' % (json.dumps(item.function_id), json.dumps(endpoint), arguments))
     for marker in ('{{FUNCTIONS_RUNTIME}}', '{{FUNCTION_REGISTRATIONS}}'):
         if template.count(marker) != 1:
             raise ValueError('functions.js template must contain exactly one ' + marker)
-    return template.replace('{{FUNCTIONS_RUNTIME}}', runtime).replace('{{FUNCTION_REGISTRATIONS}}', '\n'.join(registrations))
+    config = client_configuration(base_url, hub_user)
+    prefix = 'globalThis.JupyterExcelConfig = ' + json.dumps(config) + ';\n'
+    return prefix + template.replace('{{FUNCTIONS_RUNTIME}}', runtime).replace('{{FUNCTION_REGISTRATIONS}}', '\n'.join(registrations))
 
 
 def manifest_xml(base_url, namespace="JUPYTER"):

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Input Access Token</title>
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+    <link href="token-dialog.css" rel="stylesheet" type="text/css" />
+<script defer src="jupyter-config.js"></script>
+<script defer src="token-dialog.js"></script>
+</head>
+<body>
+    <main>
+        <h1>Jupyter access token</h1>
+        <p class="intro"><strong>Jupyter server</strong> <a id="server-address" target="_blank" rel="noopener noreferrer"></a></p>
+        <section id="token-form">
+            <label for="access-token">Access token</label>
+            <input id="access-token" type="text" autocomplete="off" spellcheck="false" />
+            <button id="verify" class="primary" type="button">Verify token</button>
+            <div class="help">
+                <strong>Need a token?</strong>
+                <ol><li>Open the Jupyter token page.</li><li>Create or copy an API token.</li><li>Paste it above and select Verify token.</li></ol>
+                <a id="token-help" target="_blank" rel="noopener noreferrer">Open token page</a>
+            </div>
+        </section>
+        <section id="success" hidden>
+            <dl><dt>Username</dt><dd id="username"></dd><dt>Jupyter server</dt><dd id="function-uri"></dd><dt>Storage</dt><dd>Token saved in this add-in’s local storage.</dd></dl>
+            <button id="replace-token" type="button">Replace token</button>
+        </section>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <footer><button id="ok" class="primary" type="button" disabled>OK</button></footer>
+    </main>
+</body>
+</html>

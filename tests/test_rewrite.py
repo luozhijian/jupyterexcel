@@ -1,4 +1,5 @@
 import asyncio
+import os
 import json
 import logging
 import tempfile
@@ -39,7 +40,7 @@ class HTTPTests(AsyncHTTPTestCase):
         ], cookie_secret='test', identity_provider=TestIdentity())
 
     def test_get_post_arrays_and_errors(self):
-        get = self.fetch('/Excel/ADD?inputs=%5B%5B3,4%5D%5D')
+        get = self.fetch('/Excel/ADD?params=%5B%5B3,4%5D%5D')
         post = self.fetch('/Excel/ADD', method='POST', headers={'Content-Type': 'application/json', 'Authorization': 'token dummy'}, body='[[3,4]]')
         self.assertEqual(get.code, 200)
         self.assertEqual(json.loads(get.body), json.loads(post.body))
@@ -48,11 +49,18 @@ class HTTPTests(AsyncHTTPTestCase):
             self.assertEqual(response.code, 400)
         self.assertEqual(self.fetch('/Excel/ADD').code, 400)
 
+    def test_get_requires_params(self):
+        legacy = self.fetch('/Excel/ADD?inputs=[1,2]')
+        self.assertEqual(legacy.code, 400)
+        self.assertEqual(json.loads(legacy.body)['error']['code'], 'params')
+        preferred = self.fetch('/Excel/ADD?params=[1,2]')
+        self.assertEqual(preferred.code, 200)
+
     def test_hub_header_and_owner(self):
-        self.assertEqual(self.fetch('/hub/ADD?inputs=[]').code, 401)
+        self.assertEqual(self.fetch('/hub/ADD?params=[]').code, 401)
         headers = {'Authorization': 'token dummy'}
-        self.assertEqual(self.fetch('/hub/ADD?inputs=[]', headers=headers).code, 200)
-        self.assertEqual(self.fetch('/other/ADD?inputs=[]', headers=headers).code, 403)
+        self.assertEqual(self.fetch('/hub/ADD?params=[]', headers=headers).code, 200)
+        self.assertEqual(self.fetch('/other/ADD?params=[]', headers=headers).code, 403)
 
 
 class Contents:
@@ -70,7 +78,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             from nbformat.sign import NotebookNotary
             cm = FileContentsManager(root_dir=directory, notary=NotebookNotary(data_dir=directory))
             app = SimpleNamespace(contents_manager=cm, log=logging.getLogger('test'), web_app=SimpleNamespace(settings={'base_url':'/'}), port=8888)
-            store = AssetStore(app, data_dir=Path(directory)/'data')
+            store = AssetStore(app, output_dir=Path(directory)/'data'/'excel-addin')
             cm.register_post_save_hook(store.schedule)
             notebook = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell('@jupyter_function\ndef saved(a): return a')])
             cm.save({'type':'notebook','content':notebook}, 'saved.ipynb')
@@ -84,8 +92,8 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
         hooks = [lambda **kwargs: None]
         cm.register_post_save_hook = hooks.append
         routes = []
-        app = SimpleNamespace(contents_manager=cm, log=logging.getLogger('test'), kernel_manager=object(), web_app=SimpleNamespace(settings={'base_url': '/'}, add_handlers=lambda host, handlers: routes.extend(handlers)))
-        with patch.object(AssetStore, 'schedule') as schedule:
+        app = SimpleNamespace(contents_manager=cm, log=logging.getLogger('test'), kernel_manager=object(), session_manager=object(), web_app=SimpleNamespace(settings={'base_url': '/'}, add_handlers=lambda host, handlers: routes.extend(handlers)))
+        with tempfile.TemporaryDirectory() as test_data, patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':test_data}), patch.object(AssetStore, 'schedule') as schedule:
             load_jupyter_server_extension(app)
             self.assertEqual(len(hooks), 2)
             self.assertEqual(len(routes), 1)
@@ -98,7 +106,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
     async def test_generation_and_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             app = SimpleNamespace(contents_manager=Contents(), log=logging.getLogger('test'), web_app=SimpleNamespace(settings={'base_url': '/user/alice/'}), port=8888)
-            store = AssetStore(app, data_dir=directory, username='alice')
+            store = AssetStore(app, output_dir=Path(directory)/'excel-addin', username='alice')
             await store.generate()
             self.assertEqual(store.root, Path(directory)/'excel-addin'/'alice')
             manifest = (store.root / 'manifest.xml').read_text()
@@ -107,6 +115,29 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('8888', manifest)
             self.assertTrue((store.root/'functions.json').is_file())
             self.assertTrue((store.root/f'functions.{store.current}.js').is_file())
+            from html.parser import HTMLParser
+            class Scripts(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.sources = []
+                def handle_starttag(self, tag, attrs):
+                    if tag == 'script':
+                        self.sources.append(dict(attrs).get('src', ''))
+            for name in ('functions.html', 'commands.html', 'taskpane.html', 'token-dialog.html'):
+                content = (store.root / name).read_text()
+                self.assertNotIn('{{', content)
+                parser = Scripts()
+                parser.feed(content)
+                for src in parser.sources:
+                    if src and not src.startswith('https://'):
+                        self.assertTrue((store.root / src).is_file(), src)
+            self.assertIn('ShowDebugLogButton', manifest)
+            self.assertIn('InputAccessTokenButton', manifest)
+            self.assertIn('Worksheet functions', (store.root / 'taskpane.html').read_text())
+            config = (store.root / ('jupyter-config.' + store.current + '.js')).read_text()
+            self.assertIn('"hubUser": "alice"', config)
+            self.assertIn('http://localhost:8888/user/alice', config)
+
             self.assertEqual(json.loads(store.resolve('public/functions.json').read_text())['functions'][0]['id'], 'ADD')
             html = store.resolve('public/functions.html').read_text()
             self.assertIn('functions.'+store.current+'.js', html)
@@ -122,7 +153,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(FileNotFoundError):
                 store.resolve('versions/26AFE0509/manifest.xml')
             await store.generate()
-            self.assertNotEqual(first, store.current)
+            self.assertEqual(first, store.current)
             self.assertTrue(store.resolve('versions/'+first+'/functions.'+first+'.js').exists())
 
     def test_timestamp(self):

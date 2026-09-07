@@ -46,7 +46,7 @@ class OfficeAddinTests(unittest.TestCase):
     def test_custom_runtime_is_bundled_before_registrations(self):
         with tempfile.TemporaryDirectory() as directory:
             templates = Path(directory)
-            (templates / 'functions-runtime.js').write_text('async function jupyterExcelCall() { return 42; }')
+            (templates / 'jupyter-runtime.js').write_text('async function jupyterExcelCall() { return 42; }')
             (templates / 'functions.js').write_text('{{FUNCTIONS_RUNTIME}}\n{{FUNCTION_REGISTRATIONS}}')
             script = functions_javascript(discover_notebooks(FakeContentsManager()), 'https://api.example.com', templates)
             self.assertIn('return 42;', script)

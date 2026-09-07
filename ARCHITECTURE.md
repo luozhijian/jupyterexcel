@@ -2,18 +2,21 @@
 
 ## Implemented rewrite
 
-`ExcelModeHandler` now accepts GET `inputs` or a POST JSON array at
-`/Excel/<function-id>`. `execution.py` selects kernels through the active server's
-kernel manager, reserves each kernel during dispatch, and correlates replies by
-message ID. It calls only decorated worksheet functions already in the selected
-kernel; it never runs notebook cells automatically. See DEVELOPMENT.md for the
-response contract and authentication setup.
+`ExcelModeHandler` now accepts GET `params` or a POST JSON array at
+`/Excel/<function-id>`. `execution.py` creates one managed Python session per server on the first Excel call.
+Its readable session name is `JupyterExcel - <username> - <number>`; the kernel
+UUID remains the execution identity. Calls are serialized and reuse this kernel.
+Notebooks containing worksheet exports are discovered recursively through the
+ContentsManager and their code cells execute in path order in a shared namespace.
+Initialization occurs once per kernel lifetime, including after manual restart.
+Saving still only generates assets; it does not rerun code or reset debug state.
+The existing Hub own-server authorization policy remains in place.
+
 
 `assets.py` performs asynchronous ContentsManager discovery and save-triggered
 asset generation. It copies packaged templates into immutable timestamped batches,
 then publishes files and a stable manifest at the data-directory output root. A separate public web server serves these assets without tokens; no Office asset routes are registered in Jupyter.
-Previous batches remain available. The current ribbon listing and task pane are
-preserved. Legacy notebook-path execution below describes the pre-rewrite design.
+Previous batches remain available. The client templates include the merged debug-log task pane and token dialog, while preserving the notebook function listing. jupyter-runtime.js provides shared logging, scoped OfficeRuntime storage, and API transport. Legacy notebook-path execution below describes the pre-rewrite design.
 
 ## Previous architecture (historical)
 

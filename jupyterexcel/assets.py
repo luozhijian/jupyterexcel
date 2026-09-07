@@ -1,5 +1,7 @@
 """Generate immutable asset batches and publish a current-batch pointer."""
 import asyncio
+import hashlib
+import tempfile
 import json
 import os
 import re
@@ -11,7 +13,7 @@ from urllib.parse import quote
 
 from jupyter_core.paths import jupyter_data_dir
 from .execution import resolved
-from .office_addin import scan_notebook, functions_metadata, functions_javascript, public_url
+from .office_addin import scan_notebook, functions_metadata, functions_javascript, public_url, client_configuration
 
 
 def version_stamp(now):
@@ -20,10 +22,23 @@ def version_stamp(now):
 
 
 class AssetStore:
-    def __init__(self, app, template_dir=None, data_dir=None, username=None):
+    def __init__(self, app, template_dir=None, data_dir=None, username=None, output_dir=None):
         self.app = app
         self.templates = Path(template_dir or Path(__file__).parent / 'addin_template')
-        self.root = Path(data_dir or jupyter_data_dir()) / 'excel-addin'
+        # Explicit destinations isolate tests/tools from deployment settings.
+        configured = output_dir
+        if configured is None and data_dir is None:
+            configured = os.environ.get('JUPYTEREXCEL_ASSET_DIR')
+        if configured is not None:
+            if not str(configured).strip():
+                raise ValueError('JUPYTEREXCEL_ASSET_DIR/output_dir must be a nonempty absolute path.')
+            self.root = Path(configured)
+            if not self.root.is_absolute():
+                raise ValueError('JUPYTEREXCEL_ASSET_DIR/output_dir must be an absolute path.')
+        else:
+            raise ValueError('Environment variable JUPYTEREXCEL_ASSET_DIR should be defined for manifest.xml file generation.')
+        if self.root.exists() and not self.root.is_dir():
+            raise ValueError('Asset output path is not a directory: ' + str(self.root))
         if username:
             self.root /= quote(username, safe='').replace('.', '%2E')
         self.username = username
@@ -48,71 +63,135 @@ class AssetStore:
             raise ValueError('Worksheet function IDs must be nonempty and unique.')
         return found
 
+    def _render(self, batch, functions, version):
+        # Copy only browser assets, not build configuration or source maps.
+        for source in self.templates.rglob('*'):
+            if source.is_file() and source.suffix in {'.html', '.js', '.css', '.png', '.svg', '.xml', '.json'} and source.name != 'package.json':
+                target = batch / source.relative_to(self.templates)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
+        base = public_url(self.app)
+        script = functions_javascript(functions, base, template_dir=self.templates, hub_user=self.username)
+        # Bundle the runtime template and generated registrations for Excel.
+        (batch / 'functions.js').write_text(script, encoding='utf-8')
+        (batch / 'functions.json').write_text(json.dumps(functions_metadata(functions)), encoding='utf-8')
+        (batch / 'jupyter-config.js').write_text('globalThis.JupyterExcelConfig = ' + json.dumps(client_configuration(base, self.username)) + ';\n', encoding='utf-8')
+        for stem in ('functions', 'commands', 'taskpane', 'jupyter-runtime', 'jupyter-config', 'token-dialog'):
+            source = batch / (stem + '.js')
+            if source.exists():
+                source.rename(batch / f'{stem}.{version}.js')
+        for page in batch.glob('*.html'):
+            content = page.read_text(encoding='utf-8')
+            for stem in ('functions', 'commands', 'taskpane', 'jupyter-runtime', 'jupyter-config', 'token-dialog'):
+                content = content.replace(f'{stem}.js', f'{stem}.{version}.js')
+            page.write_text(content, encoding='utf-8')
+        # Preserve the extension's current function-list task pane.
+        rows = ''.join('<li><code>%s</code> - %s</li>' % (escape(f.function_id), escape(f.description)) for f in functions if f.kind == 'jupyter')
+        ribbon = ''.join('<li>%s (%s)</li>' % (escape(f.excel_name), escape(f.notebook)) for f in functions if f.kind == 'ribbon')
+        taskpane = batch / 'taskpane.html'
+        content = taskpane.read_text(encoding='utf-8')
+        content = content.replace('{{WORKSHEET_ROWS}}', rows).replace('{{RIBBON_ROWS}}', ribbon)
+        taskpane.write_text(content, encoding='utf-8')
+        manifest = (batch / 'manifest.xml').read_text(encoding='utf-8')
+        manifest = manifest.replace('{{FUNCTIONS_SCRIPT}}', f'functions.{version}.js')
+        manifest = manifest.replace('/functions.js"', f'/functions.{version}.js"')
+        # Supplied manifest references icon sizes absent from templates.
+        for size in (16, 64, 80):
+            if not (batch / 'assets' / f'icon-{size}.png').exists():
+                manifest = manifest.replace(f'icon-{size}.png', 'icon-32.png')
+        import xml.etree.ElementTree as ET
+        ET.fromstring(manifest)
+        (batch / 'manifest.xml').write_text(manifest, encoding='utf-8')
+
+    @staticmethod
+    def _file_hash(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    @classmethod
+    def _inventory(cls, directory):
+        return {p.relative_to(directory).as_posix(): cls._file_hash(p)
+                for p in sorted(directory.rglob('*'))
+                if p.is_file() and not p.name.startswith('.')}
+
+    def _publish_files(self, batch, files):
+        for name in sorted(files, key=lambda name: name == 'manifest.xml'):
+            target = self.root / name
+            if target.is_file() and self._file_hash(target) == files[name]:
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_name(target.name + '.tmp')
+            shutil.copyfile(batch / name, temporary)
+            os.replace(temporary, target)
+
+    def _reuse(self, fingerprint, expected_names):
+        try:
+            state = json.loads((self.root / 'current.json').read_text(encoding='utf-8'))
+            version = state['version']
+            files = state['files']
+            if state.get('fingerprint') != fingerprint or not re.fullmatch(r'[0-9A-Z]{9}', version):
+                return False
+            expected = {name.replace('__VERSION__', version) for name in expected_names}
+            if set(files) != expected:
+                return False
+            batch = self.root / 'versions' / version
+            if not (batch / '.ready').is_file():
+                return False
+            if any(not (batch / name).is_file() or self._file_hash(batch / name) != digest
+                   for name, digest in files.items()):
+                return False
+        except (OSError, ValueError, KeyError, TypeError):
+            return False
+        # Restore only missing/modified public files. Never hide write errors by
+        # falling back to another directory or updating the success pointer.
+        self._publish_files(batch, files)
+        self.current = version
+        return True
+
     async def generate(self):
         async with self.lock:
             functions = await self.discover()
-            self.root.mkdir(parents=True, exist_ok=True)
-            while True:
-                version = version_stamp(datetime.now())
-                batch = self.root / 'versions' / version
-                if not batch.exists():
-                    break
-                await asyncio.sleep(0.1)
-            batch.mkdir(parents=True)
-            try:
-                # Copy only browser assets, not build configuration or source maps.
-                for source in self.templates.rglob('*'):
-                    if source.is_file() and source.suffix in {'.html', '.js', '.css', '.png', '.svg', '.xml', '.json'} and source.name != 'package.json':
-                        target = batch / source.relative_to(self.templates)
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copyfile(source, target)
-                base = public_url(self.app)
-                script = functions_javascript(functions, base, template_dir=self.templates)
-                # Bundle the runtime template and generated registrations for Excel.
-                (batch / 'functions.js').write_text(script, encoding='utf-8')
-                (batch / 'functions.json').write_text(json.dumps(functions_metadata(functions)), encoding='utf-8')
-                for stem in ('functions', 'commands', 'taskpane'):
-                    source = batch / (stem + '.js')
-                    if source.exists():
-                        source.rename(batch / f'{stem}.{version}.js')
-                for page in batch.glob('*.html'):
-                    content = page.read_text(encoding='utf-8')
-                    for stem in ('functions', 'commands', 'taskpane'):
-                        content = content.replace(f'{stem}.js', f'{stem}.{version}.js')
-                    page.write_text(content, encoding='utf-8')
-                # Preserve the extension's current function-list task pane.
-                rows = ''.join('<li><code>%s</code> - %s</li>' % (escape(f.function_id), escape(f.description)) for f in functions if f.kind == 'jupyter')
-                ribbon = ''.join('<li>%s (%s)</li>' % (escape(f.excel_name), escape(f.notebook)) for f in functions if f.kind == 'ribbon')
-                (batch / 'taskpane.html').write_text('<!doctype html><html><head><meta charset="utf-8"><script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script></head><body><h1>JupyterExcel</h1><h2>Worksheet functions</h2><ul>' + rows + '</ul><h2>Ribbon functions</h2><ul>' + ribbon + '</ul></body></html>', encoding='utf-8')
-                manifest = (batch / 'manifest.xml').read_text(encoding='utf-8')
-                manifest = manifest.replace('{{FUNCTIONS_SCRIPT}}', f'functions.{version}.js')
-                manifest = manifest.replace('/functions.js', f'/functions.{version}.js')
-                # Supplied manifest references icon sizes absent from templates.
-                for size in (16, 64, 80):
-                    if not (batch / 'assets' / f'icon-{size}.png').exists():
-                        manifest = manifest.replace(f'icon-{size}.png', 'icon-32.png')
-                import xml.etree.ElementTree as ET
-                ET.fromstring(manifest)
-                (batch / 'manifest.xml').write_text(manifest, encoding='utf-8')
-                (batch / '.ready').write_text('complete', encoding='utf-8')
-                # A plain static server can serve the output root directly.
-                # Publish dependencies first, then the stable manifest last.
-                for source in sorted(batch.rglob('*'), key=lambda p: p.name == 'manifest.xml'):
-                    if not source.is_file() or source.name.startswith('.'):
-                        continue
-                    target = self.root / source.relative_to(batch)
+            # Render with a fixed placeholder so dates cannot affect comparison.
+            # Temporary output is discarded automatically on no-op or failure.
+            with tempfile.TemporaryDirectory(prefix='jupyterexcel-build-') as directory:
+                staged = Path(directory)
+                self._render(staged, functions, '__VERSION__')
+                inventory = self._inventory(staged)
+                fingerprint = hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
+                if self._reuse(fingerprint, inventory):
+                    self.functions = functions
+                    self.app.log.info('JupyterExcel assets unchanged; existing version %s reused', self.current)
+                    return False
+                try:
+                    self.root.mkdir(parents=True, exist_ok=True)
+                except OSError as error:
+                    raise OSError(f'Cannot create asset output directory {self.root}: {error}') from error
+                while True:
+                    version = version_stamp(datetime.now())
+                    batch = self.root / 'versions' / version
+                    if not batch.exists():
+                        break
+                    await asyncio.sleep(0.1)
+                batch.mkdir(parents=True)
+                # Use the exact prepared content so a template edit during the
+                # build cannot disagree with the persisted fingerprint.
+                for name in inventory:
+                    source = staged / name
+                    target = batch / name.replace('__VERSION__', version)
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    temporary = target.with_name(target.name + '.tmp')
-                    shutil.copyfile(source, temporary)
-                    os.replace(temporary, target)
+                    data = source.read_bytes()
+                    if source.suffix in {'.js', '.html', '.xml'}:
+                        data = data.replace(b'__VERSION__', version.encode())
+                    target.write_bytes(data)
+                files = self._inventory(batch)
+                (batch / '.ready').write_text('complete', encoding='utf-8')
+                self._publish_files(batch, files)
+                state = {'version': version, 'fingerprint': fingerprint, 'files': files}
                 pointer = self.root / 'current.tmp'
-                pointer.write_text(json.dumps({'version': version}), encoding='utf-8')
+                pointer.write_text(json.dumps(state, sort_keys=True), encoding='utf-8')
                 os.replace(pointer, self.root / 'current.json')
                 self.current, self.functions = version, functions
                 self.app.log.info('JupyterExcel assets generated: %s', batch)
-            except Exception:
-                # Incomplete batches are never published or served.
-                raise
+                return True
 
     def schedule(self, **kwargs):
         if self.task and not self.task.done():

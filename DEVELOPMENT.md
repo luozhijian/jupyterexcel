@@ -36,7 +36,7 @@ Run the notebook definition cells before calling an exported `@jupyter_function`
 The endpoint is now `/Excel/<exported-id>`, not a notebook path. This replaces the
 legacy notebook-path, form-encoded transport and automatic notebook execution.
 
-GET: `/Excel/ADD?token=<token>&inputs=%5B3%2C4%5D`
+GET: `/Excel/ADD?token=<token>&params=%5B3%2C4%5D`
 
 POST: `/Excel/ADD?token=<token>`, Content-Type `application/json`, body `[3, 4]`.
 The top-level list is always unpacked. Pass `[[3, 4]]` for one list argument.
@@ -61,7 +61,7 @@ managers without events refresh on the next save or startup.
 Packaged source templates live in `jupyterexcel/addin_template`. The original
 repository-root `addin_template` files are preserved. The supplied functions.js
 sample registrations are replaced by notebook registrations. The existing
-function-list task pane is retained; ribbon and task-pane redesign is deferred.
+function list is retained inside the merged debug-log task pane. Notebook ribbon execution remains deferred.
 
 Output is `<jupyter --data-dir>/excel-addin/`, with a username subfolder on Hub.
 Unsafe username path characters are percent-encoded. Complete batches live in
@@ -74,8 +74,7 @@ local-clock second. Generation failures retain the previous published batch.
 Generated code supports an optional `globalThis.jupyterExcelAuth` async callback
 returning `{token, hub}`. The caller supplies this at runtime; tokens are never
 written into generated files. Without it, same-origin authenticated cookies are
-used, with the XSRF header when available. Token-entry UI and credential storage
-are deferred with task-pane design. Hub worksheet calls require token headers.
+used, with the XSRF header when available. The merged Input Access Token dialog supplies credentials through shared OfficeRuntime.storage. Hub worksheet calls require token headers.
 Office assets are served without tokens by your separate static web server. Jupyter registers only the authenticated /Excel/<function-id> API; it does not serve Office assets.
 
 ## Static web server configuration
@@ -224,7 +223,7 @@ If Office resources do not load:
 
 ## JavaScript source templates
 
-Edit `jupyterexcel/addin_template/functions-runtime.js` for shared request and
+Edit `jupyterexcel/addin_template/jupyter-runtime.js` for shared request and
 runtime authentication logic. `functions.js` in the same folder is the bundle
 template, with exactly one `{{FUNCTIONS_RUNTIME}}` and one
 `{{FUNCTION_REGISTRATIONS}}` placeholder. Generation loads these files and emits
@@ -236,3 +235,155 @@ provide both files.
 The packaged manifest template uses `{{FUNCTIONS_SCRIPT}}` for the versioned
 script filename. Its website URLs remain those specified in the template.
 Existing `setup.py` package-data patterns include these templates in pip packages.
+
+## Merged Excel client
+
+The editable templates under `jupyterexcel/addin_template` now include the tested
+JupyterExcel debug-log task pane, CSS, token dialog, and access-token ribbon
+command. The task pane also retains the notebook worksheet/ribbon listing. These
+UI commands are separate from notebook `@ribbon_function` execution, which remains
+deferred. The client sample ADD/SUM/CLOCK/INCREMENT/LOG registrations are not copied;
+worksheet registrations still come exclusively from notebook metadata.
+
+`jupyter-runtime.js` combines the shared logger and HTTP transport with no ES
+module imports or DOM dependency. It is bundled into the generated functions
+script; the UI pages load it separately with `jupyter-config.<version>.js`.
+All local HTML scripts are explicitly referenced; webpack is not needed to use
+the packaged templates. Manifest absolute URLs remain under template control.
+
+The Input Access Token dialog sends the entered credential to its same-origin
+Office command parent. The parent validates against the configured Jupyter API
+(and checks the username on Hub), then saves it in OfficeRuntime.storage. Both
+credentials and log settings are scoped by API base URL and Hub username. The
+worksheet runtime reads this same storage, or uses the existing
+`globalThis.jupyterExcelAuth` override. LocalStorage is used only for the UI's
+expanded/collapsed preference, not authentication credentials. Office DialogApi
+1.2 support is required for parent-to-dialog confirmation. Jupyter's CORS policy
+must permit the actual add-in origin; the extension does not relax it.
+
+Logging defaults to disabled / Normal. Enable it in Show Debug Log. Request logs
+contain function name, argument count, HTTP status and elapsed time, not worksheet
+values, results, tokens, full URLs, or raw exception text. The logger retains up to
+200 entries and 200,000 characters and redacts credential-shaped fields. Clear,
+pause, filter, copy, and export controls are carried over from the tested client.
+
+Run JavaScript regression tests with `node --test tests/test_client_runtime.cjs`.
+These simulate separate Office runtimes and storage; live Excel/Hub validation is
+still required for actual Office dialog/storage support and deployment CORS.
+
+## Parameter types and dimensions
+
+`@jupyter_function` accepts `parameter_types`, `parameter_dimensionality`,
+`result_type`, and `result_dimensionality`. Omitted types default to `any` and
+omitted dimensions default to `scalar`, independently for every parameter and
+for the result. Supported types: `any`, `number`, `string`, `boolean`.
+Supported dimensions: `scalar`, `matrix` (a rectangular two-dimensional array).
+
+```python
+@jupyter_function(
+    name="SCALE",
+    parameter_types={"values": "number", "factor": "number"},
+    parameter_dimensionality={"values": "matrix"},
+    result_type="number",
+    result_dimensionality="matrix",
+)
+def scale(values, factor=2):
+    return [[value * factor for value in row] for row in values]
+```
+
+Excel receives explicit type and dimensionality in functions.json. Use literal
+metadata values/dictionaries so static discovery can read them without executing
+cells. Invalid metadata and unknown parameter names raise ValueError.
+These declarations do not coerce or validate HTTP argument values at runtime.
+Return nested Python lists for matrix results. Automatic DataFrame conversion
+and Python annotation inference are not implemented.
+
+Restart Jupyter after upgrading, rerun definition cells in the kernel, and save
+the notebook to regenerate metadata. Reload the add-in if Excel caches an older
+function signature.
+
+## Override the asset output directory
+
+Set the variable in the same PowerShell session before launching Jupyter:
+
+```powershell
+$env:JUPYTEREXCEL_ASSET_DIR = "C:\Websites\JupyterExcel\excel-addin"
+jupyter lab
+```
+
+The value must be an absolute filesystem directory, not a URL. Standalone Jupyter
+writes directly there; Hub appends its username subdirectory. When the variable
+is unset, output remains `<jupyter-data-dir>/excel-addin/` (plus username on Hub).
+An empty or relative setting is rejected. Missing directories are created during
+generation; permission failures are reported without falling back elsewhere.
+Changing this setting does not move existing output or configure your web server.
+
+The two-argument notebook test continues to use its explicit output directory.
+Programmatic `output_dir` overrides the environment; explicit `data_dir` retains
+its existing data-directory behavior for tests. Normal server startup uses the
+environment variable or Jupyter's default data directory.
+
+GET requests require `params` for the JSON-encoded positional array. There is no
+`inputs` compatibility alias. POST still accepts the JSON array directly as its body;
+no object wrapper is required. Both methods return `params` for argument-format
+error codes.
+
+## Skip unchanged asset builds
+
+Generation renders candidate content with a fixed version placeholder and hashes
+the resulting files (including templates, icons, metadata, registrations and API
+configuration). The fingerprint and published-file hashes are stored in
+`current.json` only after successful publication. Notebook outputs and calculation
+body edits do not change the fingerprint unless generated content changes.
+
+Matching builds reuse the existing version, including after a server restart,
+and leave unchanged public files untouched. Missing or modified public files are
+restored from the verified archived batch without assigning a new timestamp.
+If that archive is missing or damaged, a new batch is generated. An older
+`current.json` without fingerprints causes one fresh build. Temporary candidates
+are discarded on unchanged builds and failures. `generate()` returns True when a
+new version is published and False when the current version is reused/repaired.
+
+The current deployment requires JUPYTEREXCEL_ASSET_DIR (or an explicit test output
+directory); the user's removal of the default data-directory fallback is retained.
+
+## Managed shared kernel
+
+Excel requests now create/reuse a console session named
+`JupyterExcel - <username> - <number>` using the `python3` kernelspec.
+Hub uses JUPYTERHUB_USER; standalone uses the operating-system username.
+The label belongs to the running session, not the installed Python kernelspec.
+Select this existing session/kernel in JupyterLab to debug its shared namespace.
+Names are checked against active sessions, and replacements increment the number.
+The actual kernel UUID is tracked separately; labels do not grant access.
+
+On the first call, all code cells in notebooks containing @jupyter_function
+exports execute in sorted notebook-path order. This includes imports and other
+cell side effects. Notebooks without worksheet exports are not automatically run.
+All loaded notebooks share globals. Custom load ordering remains deferred.
+Initialization failures block calls until the kernel is restarted, avoiding
+repeated partial execution. A timed-out operation may still be running.
+
+Saves continue to generate assets without running cells. To load saved code
+changes, restart the managed kernel; its next Excel call reloads the notebooks.
+Manual edits in an attached notebook otherwise remain available for debugging.
+Concurrent Excel requests serialize; an already busy managed kernel returns 503.
+Shutdown/dead kernels are replaced on the next request. This implementation does
+not adopt an arbitrary existing session based only on its display name.
+
+Shared-server authorization has not changed: Hub Excel requests still require
+the server owner's authenticated token. Team-member API delegation is deferred.
+These details supersede the earlier first-kernel/manual-definition instructions.
+
+## Repeating worksheet parameters
+
+Python `*values` is exported as the final Office parameter with `repeating: true`.
+Types and dimensionality still default to any/scalar. Use number/matrix to accept
+multiple numeric ranges and individual numbers. Excel groups the repeated values
+into one array; the generated bridge expands that group into Python positional
+arguments, preserving each matrix. HTTP callers continue to send the positional
+array directly, for example `[2, [[3,4]], 5]`. Keyword parameters after *values
+are rejected. Blank/text handling is the Python function's responsibility.
+Restart Jupyter Server, save to regenerate assets, and reload the Excel add-in
+metadata after changing a parameter to repeating.
+

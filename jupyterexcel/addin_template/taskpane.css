@@ -1,0 +1,37 @@
+html, body { width: 100%; height: 100%; margin: 0; background: #f5f6f8; color: #242424; }
+* { box-sizing: border-box; }
+button, input, select { font: inherit; }
+.loading { padding: 24px; }
+#app-body { min-height: 100%; flex-direction: column; }
+.debug-log-section { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.app-header { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; color: white; background: #292d3e; }
+.collapse-button { display: flex; flex: 1; min-width: 0; align-items: center; gap: 8px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.collapse-button strong, .collapse-button small { display: block; }
+.collapse-button strong { font-size: 16px; }
+.collapse-button small { margin-top: 2px; color: #c9ccda; font-size: 11px; }
+.collapse-icon { width: 12px; font-size: 16px; }
+.compact-log-count { color: #c9ccda; font-size: 11px; white-space: nowrap; }
+.toggle { display: flex; gap: 6px; align-items: center; font-weight: 600; }
+.debug-log-content { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.debug-log-section.collapsed { flex: 0 0 auto; }
+.debug-log-section.collapsed .debug-log-content { display: none; }
+.debug-log-section.collapsed .collapse-button small { display: none; }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 12px; background: white; border-bottom: 1px solid #ddd; }
+.controls label { display: flex; flex-direction: column; gap: 3px; color: #555; font-size: 11px; font-weight: 600; }
+.controls input, .controls select { width: 100%; min-width: 0; padding: 6px 7px; border: 1px solid #aaa; border-radius: 3px; background: white; color: #222; font-size: 13px; }
+.controls .search, .controls .auto-scroll { grid-column: 1 / -1; }
+.controls .auto-scroll { flex-direction: row; align-items: center; }
+.controls .auto-scroll input { width: auto; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 12px; background: white; border-bottom: 1px solid #ddd; }
+.toolbar button { padding: 6px 9px; border: 1px solid #888; border-radius: 3px; background: white; cursor: pointer; }
+.toolbar button:hover { background: #eee; }
+.summary { display: flex; justify-content: space-between; min-height: 32px; padding: 8px 12px; color: #666; font-size: 11px; }
+#status { color: #0969a5; }
+.log-list { flex: 1; min-height: 240px; max-height: calc(100vh - 280px); overflow: auto; padding: 0 10px 14px; }
+.log-entry { margin: 6px 0; border-left: 4px solid #777; border-radius: 3px; background: white; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.log-entry summary { padding: 9px; cursor: pointer; font-family: Consolas, monospace; font-size: 11px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+.log-entry pre { max-height: 360px; overflow: auto; margin: 0; padding: 10px; border-top: 1px solid #eee; background: #fafafa; font: 11px/1.4 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.level-verbose { border-left-color: #777; }
+.level-info { border-left-color: #157347; }
+.level-warn { border-left-color: #c77700; }
+.level-error { border-left-color: #c42b1c; }

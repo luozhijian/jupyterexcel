@@ -3,6 +3,7 @@ import asyncio
 import ast
 import inspect
 import json
+import uuid
 
 
 class ExecutionError(Exception):
@@ -68,7 +69,7 @@ class KernelExecutor:
         try:
             kernel = self.manager.get_kernel(kernel_id)
             from jupyter_client import AsyncKernelClient
-            client = AsyncKernelClient()
+            client = AsyncKernelClient(parent=kernel)
             client.load_connection_info(kernel.get_connection_info())
             client.start_channels()
             # Literal JSON decoding prevents input strings from becoming Python code.
@@ -91,3 +92,113 @@ class KernelExecutor:
             if client is not None:
                 client.stop_channels()
             self.reserved.discard(kernel_id)
+
+
+class SharedKernelExecutor:
+    """One managed, named session per server; notebook state is shared."""
+    def __init__(self, manager, sessions, contents, username, timeout=30):
+        self.manager, self.sessions, self.contents = manager, sessions, contents
+        self.username, self.timeout = username, timeout
+        self.kernel_id = None
+        self.number = 0
+        self.lock = asyncio.Lock()
+
+    async def _ensure_kernel(self):
+        models = await resolved(self.manager.list_kernels())
+        if self.kernel_id and any(m['id'] == self.kernel_id for m in models):
+            return self.kernel_id
+        existing = await resolved(self.sessions.list_sessions())
+        names = {s.get('name') for s in existing}
+        while True:
+            self.number += 1
+            name = f'JupyterExcel - {self.username} - {self.number}'
+            if name not in names:
+                break
+        # A session label is visible in the running-session/kernel selector.
+        # Do not rename the Python kernelspec or use the label as an identity.
+        session = await resolved(self.sessions.create_session(
+            path='jupyterexcel-' + uuid.uuid4().hex, name=name, type='console', kernel_name='python3'))
+        self.kernel_id = session['kernel']['id']
+        return self.kernel_id
+
+    async def _notebooks(self):
+        from .office_addin import scan_notebook
+        notebooks = []
+        seen = set()
+        async def visit(path):
+            model = await resolved(self.contents.get(path, content=True))
+            if model['type'] == 'directory':
+                for child in sorted(model.get('content') or [], key=lambda c: c['path']):
+                    if child['type'] in {'directory', 'notebook'}:
+                        await visit(child['path'])
+            elif model['type'] == 'notebook':
+                functions = [f for f in scan_notebook(model['content'], path) if f.kind == 'jupyter']
+                for function in functions:
+                    if function.function_id in seen:
+                        raise ExecutionError(500, 'duplicate_function',
+                                             'Duplicate exported function: ' + function.function_id)
+                    seen.add(function.function_id)
+                if functions:
+                    cells = []
+                    for cell_number, cell in enumerate(model['content'].get('cells', []), 1):
+                        if cell.get('cell_type') == 'code':
+                            source = cell.get('source', '')
+                            cells.append((cell_number, ''.join(source) if isinstance(source, list) else source))
+                    notebooks.append((path, cells))
+        await visit('')
+        return notebooks
+
+    async def _initialize(self, kernel_id):
+        from jupyter_client import AsyncKernelClient
+        kernel = self.manager.get_kernel(kernel_id)
+        client = AsyncKernelClient(parent=kernel)
+        client.load_connection_info(kernel.get_connection_info())
+        client.start_channels()
+        async def run(code):
+            message_id = client.execute(code, silent=True, store_history=False, allow_stdin=False)
+            while True:
+                message = await client.get_shell_msg()
+                if message.get('parent_header', {}).get('msg_id') == message_id:
+                    if message['content'].get('status') != 'ok':
+                        raise ExecutionError(500, 'notebook_load_failed',
+                                             message['content'].get('evalue', 'Notebook initialization failed; inspect the managed kernel.'))
+                    return
+        try:
+            await client.wait_for_ready(timeout=self.timeout)
+            # The marker lives in the kernel so a manual restart reloads notebooks,
+            # while a debugger's edits survive subsequent Excel calls.
+            notebooks = await self._notebooks()
+            payload = json.dumps(notebooks)
+            code = """if not globals().get('_jupyterexcel_initialized', False):
+    if globals().get('_jupyterexcel_initializing', False):
+        raise RuntimeError('Previous initialization failed; restart this kernel before retrying.')
+    _jupyterexcel_initializing = True
+    import json as _jupyterexcel_json
+    for _jupyterexcel_path, _jupyterexcel_cells in _jupyterexcel_json.loads(%r):
+        for _jupyterexcel_index, _jupyterexcel_source in _jupyterexcel_cells:
+            _jupyterexcel_result = get_ipython().run_cell(_jupyterexcel_source, store_history=False)
+            if not _jupyterexcel_result.success:
+                raise RuntimeError('Notebook initialization failed: %%s, cell %%s' %% (_jupyterexcel_path, _jupyterexcel_index))
+    _jupyterexcel_initialized = True
+    _jupyterexcel_initializing = False
+""" % payload
+            await asyncio.wait_for(run(code), self.timeout)
+        except asyncio.TimeoutError:
+            raise ExecutionError(504, 'timeout', 'Notebook initialization timed out; it may still be running.') from None
+        finally:
+            client.stop_channels()
+
+    async def execute(self, function_id, inputs, idle_only=False):
+        async with self.lock:
+            kernel_id = await self._ensure_kernel()
+            model = next(m for m in await resolved(self.manager.list_kernels()) if m['id'] == kernel_id)
+            if model.get('execution_state') == 'busy':
+                raise ExecutionError(503, 'kernel_busy', 'The JupyterExcel kernel is busy; retry when it is idle.')
+            await self._initialize(kernel_id)
+            manager = self.manager
+            class SelectedKernel:
+                def list_kernels(self):
+                    return [{'id': kernel_id, 'execution_state': 'idle'}]
+                def get_kernel(self, selected_id):
+                    return manager.get_kernel(selected_id)
+            return await KernelExecutor(SelectedKernel(), self.timeout).execute(function_id, inputs)

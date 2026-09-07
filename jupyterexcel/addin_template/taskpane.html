@@ -1,1 +1,46 @@
-<!doctype html><html><head><meta charset="UTF-8"/><meta http-equiv="X-UA-Compatible" content="IE=Edge"/><meta name="viewport" content="width=device-width,initial-scale=1"><title>JPMorgan Task Pane Add-in</title><script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script><link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/><link href="1fda685b81e1123773f6.css" rel="stylesheet"/><script defer="defer" src="polyfill.js"></script><script defer="defer" src="taskpane.js"></script></head><body class="ms-font-m ms-welcome ms-Fabric"><header class="ms-welcome__header ms-bgColor-neutralLighter"><img width="90" height="90" src="assets/logo-filled.png" alt="JPMorgan" title="JPMorgan"/><h1 class="ms-font-su">Welcome</h1></header><section id="sideload-msg" class="ms-welcome__main"><h2 class="ms-font-xl">Please <a target="_blank" href="https://learn.microsoft.com/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing">sideload</a> your add-in to see app body.</h2></section><main id="app-body" class="ms-welcome__main" style="display:none"><h2 class="ms-font-xl">Discover what Office Add-ins can do for you today!</h2><ul class="ms-List ms-welcome__features"><li class="ms-ListItem"><i class="ms-Icon ms-Icon--Ribbon ms-font-xl"></i> <span class="ms-font-m">Achieve more with Office integration</span></li><li class="ms-ListItem"><i class="ms-Icon ms-Icon--Unlock ms-font-xl"></i> <span class="ms-font-m">Unlock features and functionality</span></li><li class="ms-ListItem"><i class="ms-Icon ms-Icon--Design ms-font-xl"></i> <span class="ms-font-m">Create and visualize like a pro</span></li></ul><p class="ms-font-l">Modify the source files, then click <b>Run</b>.</p><div role="button" id="run" class="ms-welcome__action ms-Button ms-Button--hero ms-font-xl"><span class="ms-Button-label">Run</span></div><p><label id="item-subject"></label></p></main></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Jupyter Excel Debug Log</title>
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
+    <link href="taskpane.css" rel="stylesheet" type="text/css" />
+<script defer src="jupyter-config.js"></script>
+<script defer src="jupyter-runtime.js"></script>
+<script defer src="taskpane.js"></script>
+</head>
+<body class="ms-font-m ms-Fabric">
+    <section id="sideload-msg" class="loading"><p>Loading Jupyter Excel debug log…</p></section>
+    <main id="app-body" style="display: none;">
+      <section id="debug-log-section" class="debug-log-section">
+        <header class="app-header">
+            <button id="debug-log-collapse" class="collapse-button" type="button" aria-expanded="false" aria-controls="debug-log-content">
+                <span id="collapse-icon" class="collapse-icon" aria-hidden="true">▸</span>
+                <span><strong>Debug Log</strong><small>Jupyter custom-function diagnostics</small></span>
+            </button>
+            <span id="compact-log-count" class="compact-log-count">0 logs</span>
+            <label class="toggle"><input id="logging-enabled" type="checkbox" /> Logging</label>
+        </header>
+        <div id="debug-log-content" class="debug-log-content">
+          <section class="controls" aria-label="Log controls">
+            <label>Mode<select id="logging-mode"><option value="NORMAL">Normal</option><option value="VERBOSE">Verbose</option></select></label>
+            <label>Level<select id="level-filter"><option value="ALL">All</option><option value="VERBOSE">Verbose</option><option value="INFO">Info</option><option value="WARN">Warning</option><option value="ERROR">Error</option></select></label>
+            <label>Function<input id="function-filter" type="search" placeholder="SUM" /></label>
+            <label class="search">Search<input id="search-filter" type="search" placeholder="Message or value" /></label>
+            <label class="auto-scroll"><input id="auto-scroll" type="checkbox" checked /> Auto-scroll</label>
+          </section>
+          <section class="toolbar">
+            <button id="pause" type="button">Pause</button><button id="clear" type="button">Clear</button>
+            <button id="copy" type="button">Copy visible</button><button id="export" type="button">Export JSON</button>
+          </section>
+          <div class="summary"><span id="log-count">0 shown / 0 stored</span><span id="status" role="status"></span></div>
+          <section id="log-list" class="log-list" aria-live="polite"></section>
+        </div>
+      </section>
+    <section><h2>Worksheet functions</h2><ul>{{WORKSHEET_ROWS}}</ul><h2>Ribbon functions</h2><ul>{{RIBBON_ROWS}}</ul></section>
+</main>
+</body>
+</html>

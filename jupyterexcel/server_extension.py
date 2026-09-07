@@ -1,5 +1,6 @@
 """Authenticated worksheet execution and generated Office asset routes."""
 import json
+import getpass
 import os
 import re
 
@@ -12,7 +13,7 @@ except ImportError:
     from notebook.utils import url_path_join
 
 from .assets import AssetStore
-from .execution import ExecutionError, KernelExecutor
+from .execution import ExecutionError, SharedKernelExecutor
 
 
 class ExcelModeHandler(APIHandler):
@@ -21,7 +22,9 @@ class ExcelModeHandler(APIHandler):
 
     @web.authenticated
     async def get(self, function_id):
-        await self.call(function_id, self.get_query_argument('inputs', None))
+        vv = self.get_query_argument('params', None)
+        print (f"calling: {function_id}:{vv}")
+        await self.call(function_id, vv)
 
     @web.authenticated
     async def post(self, function_id):
@@ -48,14 +51,14 @@ class ExcelModeHandler(APIHandler):
             if not re.fullmatch(r'[A-Za-z0-9.]+', function_id):
                 raise ExecutionError(400, 'function_id', 'Invalid exported function ID.')
             if raw is None or len(raw) > 1024 * 1024:
-                raise ExecutionError(400, 'inputs', 'Supply inputs as a JSON array, at most 1 MiB.')
+                raise ExecutionError(400, 'params', 'Supply params as a JSON array, at most 1 MiB.')
             try:
-                inputs = json.loads(raw, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
+                params = json.loads(raw, parse_constant=lambda value: (_ for _ in ()).throw(ValueError(value)))
             except (ValueError, UnicodeError):
-                raise ExecutionError(400, 'inputs', 'Inputs must be valid JSON.') from None
-            if not isinstance(inputs, list):
-                raise ExecutionError(400, 'inputs', 'Inputs must be a JSON array.')
-            result = await self.executor.execute(function_id, inputs, idle_only=bool(self.hub_user))
+                raise ExecutionError(400, 'params', 'Params must be valid JSON.') from None
+            if not isinstance(params, list):
+                raise ExecutionError(400, 'params', 'Params must be a JSON array.')
+            result = await self.executor.execute(function_id, params, idle_only=bool(self.hub_user))
             if not result['ok']:
                 code = result['error']['code']
                 self.set_status(404 if code == 'function_not_found' else 400 if code == 'invalid_arguments' else 500)
@@ -63,6 +66,7 @@ class ExcelModeHandler(APIHandler):
         except ExecutionError as error:
             self.fail(error.status, error.code, str(error))
         except Exception:
+            self.log.exception('JupyterExcel kernel request failed')
             self.fail(500, 'server_error', 'The server could not complete the kernel request.')
 
 
@@ -72,7 +76,8 @@ def load_jupyter_server_extension(app):
         return
     hub_user = os.environ.get('JUPYTERHUB_USER')
     store = AssetStore(app, username=hub_user)
-    executor = KernelExecutor(app.kernel_manager, timeout=float(os.environ.get('JUPYTEREXCEL_EXECUTION_TIMEOUT', '30')))
+    executor = SharedKernelExecutor(app.kernel_manager, app.session_manager, app.contents_manager,
+                                    hub_user or getpass.getuser(), timeout=float(os.environ.get('JUPYTEREXCEL_EXECUTION_TIMEOUT', '30')))
     settings['jupyterexcel_asset_store'] = store
     settings['jupyterexcel_executor'] = executor
     base = settings.get('base_url', '/')

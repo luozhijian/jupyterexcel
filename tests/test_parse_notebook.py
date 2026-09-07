@@ -52,12 +52,16 @@ async def generate_notebook(notebook_path, output_directory):
         web_app=SimpleNamespace(settings={'base_url': '/'}),
         ip='localhost', port=8888,
     )
-    store = AssetStore(app, data_dir=output)
-    # The second argument is the exact destination, not a Jupyter data parent.
-    store.root = output
+    store = AssetStore(app, output_dir=output)
     await store.generate()
     metadata = json.loads((output / 'functions.json').read_text(encoding='utf-8'))
-    ET.parse(output / 'manifest.xml')
+    manifest_tree = ET.parse(output / 'manifest.xml')
+    from urllib.parse import urlparse, unquote
+    for element in manifest_tree.iter():
+        if element.attrib.get('id') in {'Functions.Script.Url', 'Functions.Metadata.Url', 'Functions.Page.Url'}:
+            filename = Path(unquote(urlparse(element.attrib['DefaultValue']).path)).name
+            if not (output / filename).is_file():
+                raise AssertionError('Manifest resource does not exist: ' + filename)
     script = output / f'functions.{store.current}.js'
     if not script.is_file():
         raise AssertionError('Versioned function script was not generated.')
