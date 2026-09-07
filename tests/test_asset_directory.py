@@ -17,10 +17,9 @@ class AssetDirectoryTests(unittest.TestCase):
                 self.assertFalse(destination.exists())
 
     def test_unset_env_requires_configuration(self):
-        with tempfile.TemporaryDirectory() as directory:
-            with patch.dict(os.environ, {}, clear=True), patch('jupyterexcel.assets.jupyter_data_dir', return_value=directory):
-                with self.assertRaisesRegex(ValueError, 'should be defined'):
-                    AssetStore(None)
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(ValueError, 'should be defined'):
+                AssetStore(None)
 
     def test_invalid_env_is_rejected_without_fallback(self):
         for value in ('', 'relative/path', 'https://example.com/assets'):
@@ -39,6 +38,8 @@ class AssetDirectoryTests(unittest.TestCase):
     def test_explicit_test_destination_overrides_environment(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR': 'invalid-relative-path'}):
-                self.assertEqual(AssetStore(None, output_dir=directory).root, Path(directory))
-                with self.assertRaises(ValueError):
-                    AssetStore(None, data_dir=directory)
+                store = AssetStore(None, output_dir=directory)
+                hub_store = AssetStore(None, username='alice', output_dir=directory)
+
+                self.assertEqual(store.root, Path(directory))
+                self.assertEqual(hub_store.root, Path(directory) / 'alice')

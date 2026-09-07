@@ -313,15 +313,14 @@ jupyter lab
 
 The value must be an absolute filesystem directory, not a URL. Standalone Jupyter
 writes directly there; Hub appends its username subdirectory. When the variable
-is unset, output remains `<jupyter-data-dir>/excel-addin/` (plus username on Hub).
+is unset, normal server startup raises a configuration error.
 An empty or relative setting is rejected. Missing directories are created during
 generation; permission failures are reported without falling back elsewhere.
 Changing this setting does not move existing output or configure your web server.
 
 The two-argument notebook test continues to use its explicit output directory.
-Programmatic `output_dir` overrides the environment; explicit `data_dir` retains
-its existing data-directory behavior for tests. Normal server startup uses the
-environment variable or Jupyter's default data directory.
+Programmatic `output_dir` overrides the environment for tests and tooling. Normal
+server startup uses the environment variable.
 
 GET requests require `params` for the JSON-encoded positional array. There is no
 `inputs` compatibility alias. POST still accepts the JSON array directly as its body;

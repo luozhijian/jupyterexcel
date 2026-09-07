@@ -23,7 +23,6 @@ class ExcelModeHandler(APIHandler):
     @web.authenticated
     async def get(self, function_id):
         vv = self.get_query_argument('params', None)
-        print (f"calling: {function_id}:{vv}")
         await self.call(function_id, vv)
 
     @web.authenticated

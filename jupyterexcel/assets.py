@@ -11,7 +11,6 @@ from html import escape
 from pathlib import Path
 from urllib.parse import quote
 
-from jupyter_core.paths import jupyter_data_dir
 from .execution import resolved
 from .office_addin import scan_notebook, functions_metadata, functions_javascript, public_url, client_configuration
 
@@ -22,12 +21,12 @@ def version_stamp(now):
 
 
 class AssetStore:
-    def __init__(self, app, template_dir=None, data_dir=None, username=None, output_dir=None):
+    def __init__(self, app, template_dir=None, username=None, output_dir=None):
         self.app = app
         self.templates = Path(template_dir or Path(__file__).parent / 'addin_template')
         # Explicit destinations isolate tests/tools from deployment settings.
         configured = output_dir
-        if configured is None and data_dir is None:
+        if configured is None:
             configured = os.environ.get('JUPYTEREXCEL_ASSET_DIR')
         if configured is not None:
             if not str(configured).strip():

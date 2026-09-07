@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jupyterexcel"
+version = "0.1.0"
+description = "Expose Jupyter notebook functions to Excel formulas and ribbon callbacks."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    { name = "Jim Luo", email = "luozhijian@gmail.com" },
+]
+dependencies = [
+    "jupyter-server>=2,<3",
+    "jupyter-client>=8,<9",
+    "tornado>=6.3",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+test = [
+    "ipykernel>=6,<8",
+]
+
+[project.urls]
+Homepage = "https://github.com/luozhijian/jupyterexcel"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["jupyterexcel*"]
+exclude = [
+    "tests*",
+    "test-output*",
+    "anaconda_projects*",
+]
+
+[tool.setuptools.package-data]
+jupyterexcel = [
+    "addin_template/*",
+    "addin_template/assets/*",
+]
+
+[tool.setuptools.data-files]
+"etc/jupyter/jupyter_server_config.d" = ["jupyterexcel.json"]
