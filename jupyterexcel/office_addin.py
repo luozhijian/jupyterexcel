@@ -207,10 +207,10 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None):
     runtime = (templates / 'jupyter-runtime.js').read_text(encoding='utf-8').rstrip()
     template = (templates / 'functions.js').read_text(encoding='utf-8')
     registrations = []
-    is_hub = bool(hub_user)
-    call_prefix = '/hub' if is_hub else ''
+    is_hub = bool(hub_user)   #if jupyterhub, give hub/Excel to save one 403
+    call_prefix = '/hub' if is_hub else '/'
     for item in (f for f in functions if f.kind == 'jupyter'):
-        endpoint = base_url.rstrip('/') + '/Excel/' + quote(item.function_id, safe='')
+        endpoint = base_url.rstrip('/') + call_prefix + 'Excel/' + quote(item.function_id, safe='')
         # Office may append an invocation object after the worksheet parameters.
         arguments = f'args.slice(0, {len(item.parameters)})'
         if item.parameters and item.parameters[-1].repeating:
