@@ -239,13 +239,11 @@ async function call(endpoint, suppliedArgs) {
   const startedAt = Date.now();
   const auth = typeof globalThis.jupyterExcelAuth === 'function'
     ? await globalThis.jupyterExcelAuth() : await readAuth();
-  const headers = {'Content-Type': 'application/json'};
+  const headers = { "Content-Type": "application/json"};
   // Preserve the generated path across Office URL implementations.
   let requestUrl = endpoint;
   if (auth.token) {
-     if (config.hubUser || auth.hub) 
       headers.Authorization = 'token ' + auth.token;
-     else requestUrl += (requestUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(auth.token);
   }
   if (!auth.token && typeof document !== 'undefined') {
     const match = document.cookie.match(/(?:^|; )_xsrf=([^;]*)/);
@@ -263,7 +261,8 @@ async function call(endpoint, suppliedArgs) {
 
 const testUrl = requestUrl
   + (requestUrl.includes('?') ? '&' : '?')
-  + 'params=' + encodeURIComponent(JSON.stringify(args));
+  + 'params=' + encodeURIComponent(JSON.stringify(args))
+  + (auth.token ? '&token=' + encodeURIComponent(auth.token) : '');
 
 const response = await fetch(testUrl, {
   method: 'GET',
@@ -278,15 +277,15 @@ const response = await fetch(testUrl, {
 // const response = await fetch(testUrl, {
 //   method: 'GET',
 //   credentials: 'omit',
-//   headers: {
-//     Authorization: 'token ' + auth.token
-//   }
+//   headers: headers
 // });
 
 
     // const response = await fetch(requestUrl, {
-    //   method: 'POST', credentials: auth.token ? 'omit' : 'include',
-    //   headers, body: JSON.stringify(args)
+    //   method: 'POST', credentials: auth.token ? 'same-origin' : 'include',
+    //   headers
+    //   // , body: JSON.stringify(args)
+    //   , body:  args
     // });
 
     const value = await response.json();
@@ -297,7 +296,7 @@ const response = await fetch(testUrl, {
     return value.result;
   } catch (error) {
     // Do not persist URLs, arguments, returned values, or exception text.
-    writeLog('ERROR', functionName, 'request.failed', 'Jupyter request failed', {durationMs: Date.now() - startedAt});
+    writeLog('ERROR', functionName, 'request.failed', error, {durationMs: Date.now() - startedAt});
     throw error;
   }
 }

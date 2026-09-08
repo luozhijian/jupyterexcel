@@ -41,7 +41,9 @@ class OfficeAddinTests(unittest.TestCase):
         script = functions_javascript(discover_notebooks(FakeContentsManager()), "https://localhost:3000")
         self.assertIn("/Excel/ADD", script)
         self.assertIn('CustomFunctions.associate("ADD"', script)
-        self.assertIn("JSON.stringify(args)", script)
+        self.assertIn("headers.Authorization = 'token ' + auth.token", script)
+        self.assertIn("if (typeof document !== 'undefined')", script)
+        self.assertIn("body: JSON.stringify(args)", script)
 
     def test_custom_runtime_is_bundled_before_registrations(self):
         with tempfile.TemporaryDirectory() as directory:

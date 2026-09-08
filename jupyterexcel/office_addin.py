@@ -207,6 +207,8 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None):
     runtime = (templates / 'jupyter-runtime.js').read_text(encoding='utf-8').rstrip()
     template = (templates / 'functions.js').read_text(encoding='utf-8')
     registrations = []
+    is_hub = bool(hub_user)
+    call_prefix = '/hub' if is_hub else ''
     for item in (f for f in functions if f.kind == 'jupyter'):
         endpoint = base_url.rstrip('/') + '/Excel/' + quote(item.function_id, safe='')
         # Office may append an invocation object after the worksheet parameters.

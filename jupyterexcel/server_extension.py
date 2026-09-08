@@ -80,12 +80,19 @@ def load_jupyter_server_extension(app):
     settings['jupyterexcel_asset_store'] = store
     settings['jupyterexcel_executor'] = executor
     base = settings.get('base_url', '/')
+    is_hub = bool(hub_user)
+
+    # for hub, it will be forwarded as /hub/Excel/<function_id> and the hub will handle authentication
+    match_path = r'/Excel/([^/]+)'
+    if is_hub:
+        match_path = r'/hub' + match_path
+
+    print(f"JupyterExcel: registering {match_path} for Excel function calls (hub_user={hub_user})")
+
     app.web_app.add_handlers('.*$', [
-        (url_path_join(base, r'/Excel/([^/]+)'), ExcelModeHandler, {'executor': executor, 'hub_user': hub_user}),
+        (url_path_join(base, match_path), ExcelModeHandler, {'executor': executor, 'hub_user': hub_user}),
     ])
 
-    _promote_handler(app.web_app, ExcelModeHandler)
-    
     cm = app.contents_manager
     if hasattr(cm, 'register_post_save_hook'):
         cm.register_post_save_hook(store.schedule)
