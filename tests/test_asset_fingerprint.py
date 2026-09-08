@@ -33,7 +33,12 @@ class FingerprintTests(unittest.IsolatedAsyncioTestCase):
         self.store = self.make_store()
 
     def make_store(self):
-        return AssetStore(self.app, output_dir=self.root/'output', template_dir=self.templates)
+        return AssetStore(
+            self.app,
+            output_dir=self.root/'output',
+            template_dir=self.templates,
+            asset_url='https://assets.example/excel-addin',
+        )
 
     async def test_unchanged_after_restart_keeps_every_file_timestamp(self):
         self.assertTrue(await self.store.generate())

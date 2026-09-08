@@ -83,6 +83,9 @@ def load_jupyter_server_extension(app):
     app.web_app.add_handlers('.*$', [
         (url_path_join(base, r'/Excel/([^/]+)'), ExcelModeHandler, {'executor': executor, 'hub_user': hub_user}),
     ])
+
+    _promote_handler(app.web_app, ExcelModeHandler)
+    
     cm = app.contents_manager
     if hasattr(cm, 'register_post_save_hook'):
         cm.register_post_save_hook(store.schedule)
@@ -103,5 +106,20 @@ def load_jupyter_server_extension(app):
     store.schedule()
     app.log.info('JupyterExcel loaded; generated assets will be saved under %s', store.root)
 
+
+def _promote_handler(web_app, handler_cls):
+    """Move the rule for handler_cls to the front of its host's rule list
+    so it's tried before rules registered by other extensions."""
+    try:
+        for host_rule in web_app.wildcard_router.rules:
+            path_router = host_rule.target          # an _ApplicationRouter
+            rules = getattr(path_router, "rules", None)
+            if not rules:
+                continue
+            for i, rule in enumerate(rules):
+                if rule.target is handler_cls:
+                    rules.insert(0, rules.pop(i))
+    except Exception as e:
+        app.log.warning("Could not reorder handler %s: %s", handler_cls, e)
 
 _load_jupyter_server_extension = load_jupyter_server_extension

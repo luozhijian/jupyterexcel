@@ -9,7 +9,7 @@ import shutil
 from datetime import datetime
 from html import escape
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from .execution import resolved
 from .office_addin import scan_notebook, functions_metadata, functions_javascript, public_url, client_configuration
@@ -21,7 +21,7 @@ def version_stamp(now):
 
 
 class AssetStore:
-    def __init__(self, app, template_dir=None, username=None, output_dir=None):
+    def __init__(self, app, template_dir=None, username=None, output_dir=None, asset_url=None):
         self.app = app
         self.templates = Path(template_dir or Path(__file__).parent / 'addin_template')
         # Explicit destinations isolate tests/tools from deployment settings.
@@ -38,9 +38,11 @@ class AssetStore:
             raise ValueError('Environment variable JUPYTEREXCEL_ASSET_DIR should be defined for manifest.xml file generation.')
         if self.root.exists() and not self.root.is_dir():
             raise ValueError('Asset output path is not a directory: ' + str(self.root))
-        if username:
-            self.root /= quote(username, safe='').replace('.', '%2E')
+        self.username_path = quote(username, safe='').replace('.', '%2E') if username else None
+        if self.username_path:
+            self.root /= self.username_path
         self.username = username
+        self.asset_url = asset_url
         self.current = None
         self.functions = []
         self.lock = asyncio.Lock()
@@ -62,7 +64,19 @@ class AssetStore:
             raise ValueError('Worksheet function IDs must be nonempty and unique.')
         return found
 
-    def _render(self, batch, functions, version):
+    def _asset_base_url(self):
+        configured = self.asset_url
+        if configured is None:
+            configured = os.environ.get('JUPYTEREXCEL_ASSET_URL')
+        if not configured or not str(configured).strip():
+            raise ValueError('Environment variable JUPYTEREXCEL_ASSET_URL should be defined for manifest.xml file generation.')
+        configured = str(configured).rstrip('/')
+        parsed = urlsplit(configured)
+        if parsed.scheme != 'https' or not parsed.netloc or parsed.query or parsed.fragment:
+            raise ValueError('JUPYTEREXCEL_ASSET_URL/asset_url must be an absolute HTTPS URL without query or fragment.')
+        return configured + ('/' + self.username_path if self.username_path else '')
+
+    def _render(self, batch, functions):
         # Copy only browser assets, not build configuration or source maps.
         for source in self.templates.rglob('*'):
             if source.is_file() and source.suffix in {'.html', '.js', '.css', '.png', '.svg', '.xml', '.json'} and source.name != 'package.json':
@@ -75,15 +89,6 @@ class AssetStore:
         (batch / 'functions.js').write_text(script, encoding='utf-8')
         (batch / 'functions.json').write_text(json.dumps(functions_metadata(functions)), encoding='utf-8')
         (batch / 'jupyter-config.js').write_text('globalThis.JupyterExcelConfig = ' + json.dumps(client_configuration(base, self.username)) + ';\n', encoding='utf-8')
-        for stem in ('functions', 'commands', 'taskpane', 'jupyter-runtime', 'jupyter-config', 'token-dialog'):
-            source = batch / (stem + '.js')
-            if source.exists():
-                source.rename(batch / f'{stem}.{version}.js')
-        for page in batch.glob('*.html'):
-            content = page.read_text(encoding='utf-8')
-            for stem in ('functions', 'commands', 'taskpane', 'jupyter-runtime', 'jupyter-config', 'token-dialog'):
-                content = content.replace(f'{stem}.js', f'{stem}.{version}.js')
-            page.write_text(content, encoding='utf-8')
         # Preserve the extension's current function-list task pane.
         rows = ''.join('<li><code>%s</code> - %s</li>' % (escape(f.function_id), escape(f.description)) for f in functions if f.kind == 'jupyter')
         ribbon = ''.join('<li>%s (%s)</li>' % (escape(f.excel_name), escape(f.notebook)) for f in functions if f.kind == 'ribbon')
@@ -92,8 +97,7 @@ class AssetStore:
         content = content.replace('{{WORKSHEET_ROWS}}', rows).replace('{{RIBBON_ROWS}}', ribbon)
         taskpane.write_text(content, encoding='utf-8')
         manifest = (batch / 'manifest.xml').read_text(encoding='utf-8')
-        manifest = manifest.replace('{{FUNCTIONS_SCRIPT}}', f'functions.{version}.js')
-        manifest = manifest.replace('/functions.js"', f'/functions.{version}.js"')
+        manifest = manifest.replace('{{ASSET_BASE_URL}}', self._asset_base_url())
         # Supplied manifest references icon sizes absent from templates.
         for size in (16, 64, 80):
             if not (batch / 'assets' / f'icon-{size}.png').exists():
@@ -129,7 +133,7 @@ class AssetStore:
             files = state['files']
             if state.get('fingerprint') != fingerprint or not re.fullmatch(r'[0-9A-Z]{9}', version):
                 return False
-            expected = {name.replace('__VERSION__', version) for name in expected_names}
+            expected = set(expected_names)
             if set(files) != expected:
                 return False
             batch = self.root / 'versions' / version
@@ -153,7 +157,7 @@ class AssetStore:
             # Temporary output is discarded automatically on no-op or failure.
             with tempfile.TemporaryDirectory(prefix='jupyterexcel-build-') as directory:
                 staged = Path(directory)
-                self._render(staged, functions, '__VERSION__')
+                self._render(staged, functions)
                 inventory = self._inventory(staged)
                 fingerprint = hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
                 if self._reuse(fingerprint, inventory):
@@ -175,11 +179,9 @@ class AssetStore:
                 # build cannot disagree with the persisted fingerprint.
                 for name in inventory:
                     source = staged / name
-                    target = batch / name.replace('__VERSION__', version)
+                    target = batch / name
                     target.parent.mkdir(parents=True, exist_ok=True)
                     data = source.read_bytes()
-                    if source.suffix in {'.js', '.html', '.xml'}:
-                        data = data.replace(b'__VERSION__', version.encode())
                     target.write_bytes(data)
                 files = self._inventory(batch)
                 (batch / '.ready').write_text('complete', encoding='utf-8')
@@ -219,8 +221,6 @@ class AssetStore:
                 raise FileNotFoundError(asset)
             relative = asset
         else:
-            if asset in ('functions.js', 'commands.js', 'taskpane.js'):
-                asset = asset.replace('.js', '.' + self.current + '.js')
             relative = 'versions/' + self.current + '/' + asset
         path = (self.root / relative).resolve()
         if not path.is_relative_to((self.root / 'versions').resolve()) or not path.is_file():

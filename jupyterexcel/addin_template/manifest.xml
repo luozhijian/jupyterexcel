@@ -6,8 +6,8 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="JupyterExcelAddin"/>
   <Description DefaultValue="Write your own Excel functions in Jupyter."/>
-  <IconUrl DefaultValue="https://localhost/assets/icon-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost/assets/icon-64.png"/>
+  <IconUrl DefaultValue="{{ASSET_BASE_URL}}/assets/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="{{ASSET_BASE_URL}}/assets/icon-64.png"/>
   <SupportUrl DefaultValue="https://www.jupyterexcel.com/help"/>
   <AppDomains>
     <AppDomain>https://www.jupyterexcel.com</AppDomain>
@@ -21,7 +21,7 @@
     </Sets>
   </Requirements>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://localhost/taskpane.html"/>
+    <SourceLocation DefaultValue="{{ASSET_BASE_URL}}/taskpane.html"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
@@ -101,18 +101,18 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://localhost/assets/icon-16.png"/>
-        <bt:Image id="Icon.32x32" DefaultValue="https://localhost/assets/icon-32.png"/>
-        <bt:Image id="Icon.80x80" DefaultValue="https://localhost/assets/icon-80.png"/>
+        <bt:Image id="Icon.16x16" DefaultValue="{{ASSET_BASE_URL}}/assets/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="{{ASSET_BASE_URL}}/assets/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="{{ASSET_BASE_URL}}/assets/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Functions.Script.Url" DefaultValue="https://localhost/{{FUNCTIONS_SCRIPT}}"/>
-        <bt:Url id="Functions.Metadata.Url" DefaultValue="https://localhost/functions.json"/>
-        <bt:Url id="Functions.Page.Url" DefaultValue="https://localhost/functions.html"/>
+        <bt:Url id="Functions.Script.Url" DefaultValue="{{ASSET_BASE_URL}}/functions.js"/>
+        <bt:Url id="Functions.Metadata.Url" DefaultValue="{{ASSET_BASE_URL}}/functions.json"/>
+        <bt:Url id="Functions.Page.Url" DefaultValue="{{ASSET_BASE_URL}}/functions.html"/>
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://go.microsoft.com/fwlink/?LinkId=276812"/>
-        <bt:Url id="Commands.Url" DefaultValue="https://localhost/commands.html"/>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost/taskpane.html"/>
-        <bt:Url id="DebugLogTaskpane.Url" DefaultValue="https://localhost/taskpane.html?section=debug-log"/>
+        <bt:Url id="Commands.Url" DefaultValue="{{ASSET_BASE_URL}}/commands.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="{{ASSET_BASE_URL}}/taskpane.html"/>
+        <bt:Url id="DebugLogTaskpane.Url" DefaultValue="{{ASSET_BASE_URL}}/taskpane.html?section=debug-log"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="Functions.Namespace" DefaultValue="jupyter"/>

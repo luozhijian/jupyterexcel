@@ -43,3 +43,21 @@ class AssetDirectoryTests(unittest.TestCase):
 
                 self.assertEqual(store.root, Path(directory))
                 self.assertEqual(hub_store.root, Path(directory) / 'alice')
+
+    def test_asset_url_requires_https_without_query_or_fragment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for value in ('http://assets.example', 'https://assets.example/?x=1', 'https://assets.example/#fragment'):
+                with self.subTest(value=value):
+                    store = AssetStore(None, output_dir=directory, asset_url=value)
+                    with self.assertRaisesRegex(ValueError, 'absolute HTTPS URL'):
+                        store._asset_base_url()
+
+    def test_asset_url_appends_encoded_hub_username(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = AssetStore(
+                None,
+                output_dir=directory,
+                username='alice.smith',
+                asset_url='https://assets.example/excel-addin/',
+            )
+            self.assertEqual(store._asset_base_url(), 'https://assets.example/excel-addin/alice%2Esmith')

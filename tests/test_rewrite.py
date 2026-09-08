@@ -78,7 +78,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             from nbformat.sign import NotebookNotary
             cm = FileContentsManager(root_dir=directory, notary=NotebookNotary(data_dir=directory))
             app = SimpleNamespace(contents_manager=cm, log=logging.getLogger('test'), web_app=SimpleNamespace(settings={'base_url':'/'}), port=8888)
-            store = AssetStore(app, output_dir=Path(directory)/'data'/'excel-addin')
+            store = AssetStore(app, output_dir=Path(directory)/'data'/'excel-addin', asset_url='https://assets.example/excel-addin')
             cm.register_post_save_hook(store.schedule)
             notebook = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell('@jupyter_function\ndef saved(a): return a')])
             cm.save({'type':'notebook','content':notebook}, 'saved.ipynb')
@@ -106,15 +106,22 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
     async def test_generation_and_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             app = SimpleNamespace(contents_manager=Contents(), log=logging.getLogger('test'), web_app=SimpleNamespace(settings={'base_url': '/user/alice/'}), port=8888)
-            store = AssetStore(app, output_dir=Path(directory)/'excel-addin', username='alice')
+            store = AssetStore(
+                app,
+                output_dir=Path(directory)/'excel-addin',
+                username='alice',
+                asset_url='https://www.jupyterexcel.com/excel-addin/',
+            )
             await store.generate()
             self.assertEqual(store.root, Path(directory)/'excel-addin'/'alice')
             manifest = (store.root / 'manifest.xml').read_text()
-            self.assertIn('https://localhost/functions.' + store.current + '.js', manifest)
+            self.assertIn('https://www.jupyterexcel.com/excel-addin/alice/functions.js', manifest)
+            self.assertNotIn('localhost', manifest)
+            self.assertNotIn(store.current + '.js', manifest)
             self.assertNotIn('/jupyterexcel/', manifest)
             self.assertNotIn('8888', manifest)
             self.assertTrue((store.root/'functions.json').is_file())
-            self.assertTrue((store.root/f'functions.{store.current}.js').is_file())
+            self.assertTrue((store.root/'functions.js').is_file())
             from html.parser import HTMLParser
             class Scripts(HTMLParser):
                 def __init__(self):
@@ -134,13 +141,13 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('ShowDebugLogButton', manifest)
             self.assertIn('InputAccessTokenButton', manifest)
             self.assertIn('Worksheet functions', (store.root / 'taskpane.html').read_text())
-            config = (store.root / ('jupyter-config.' + store.current + '.js')).read_text()
+            config = (store.root / 'jupyter-config.js').read_text()
             self.assertIn('"hubUser": "alice"', config)
             self.assertIn('http://localhost:8888/user/alice', config)
 
             self.assertEqual(json.loads(store.resolve('public/functions.json').read_text())['functions'][0]['id'], 'ADD')
             html = store.resolve('public/functions.html').read_text()
-            self.assertIn('functions.'+store.current+'.js', html)
+            self.assertIn('functions.js', html)
             self.assertNotIn('<base ', html)
             script = store.resolve('public/functions.js').read_text()
             self.assertIn('/user/alice/Excel/ADD', script)
@@ -154,7 +161,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
                 store.resolve('versions/26AFE0509/manifest.xml')
             await store.generate()
             self.assertEqual(first, store.current)
-            self.assertTrue(store.resolve('versions/'+first+'/functions.'+first+'.js').exists())
+            self.assertTrue(store.resolve('versions/'+first+'/functions.js').exists())
 
     def test_timestamp(self):
         self.assertEqual(version_stamp(datetime(2026,10,15,14,5,9)), '26AFE0509')

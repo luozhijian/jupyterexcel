@@ -52,7 +52,7 @@ async def generate_notebook(notebook_path, output_directory):
         web_app=SimpleNamespace(settings={'base_url': '/'}),
         ip='localhost', port=8888,
     )
-    store = AssetStore(app, output_dir=output)
+    store = AssetStore(app, output_dir=output, asset_url='https://localhost')
     await store.generate()
     metadata = json.loads((output / 'functions.json').read_text(encoding='utf-8'))
     manifest_tree = ET.parse(output / 'manifest.xml')
@@ -62,9 +62,9 @@ async def generate_notebook(notebook_path, output_directory):
             filename = Path(unquote(urlparse(element.attrib['DefaultValue']).path)).name
             if not (output / filename).is_file():
                 raise AssertionError('Manifest resource does not exist: ' + filename)
-    script = output / f'functions.{store.current}.js'
+    script = output / 'functions.js'
     if not script.is_file():
-        raise AssertionError('Versioned function script was not generated.')
+        raise AssertionError('Function script was not generated.')
     return {
         'notebook': str(source), 'output_directory': str(output),
         'version': store.current,
