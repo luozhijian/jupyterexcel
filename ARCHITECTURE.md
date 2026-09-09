@@ -66,7 +66,7 @@ Contains the static discovery and Office resource generation layer.
 2. `scan_notebook` parses code cells with Python's AST and finds `jupyter_function` and `ribbon_function` decorators without executing notebooks.
 3. `functions_metadata` generates Office custom-functions JSON for `jupyter_function` entries only.
 4. `functions_javascript` generates JavaScript bridges and calls `CustomFunctions.associate` for every worksheet function ID.
-5. `manifest_xml` generates the add-in-only XML manifest.
+5. `assets.py` renders the add-in-only XML manifest from `addin_template/manifest.xml`; the template defines the worksheet namespace.
 6. `public_url` derives the externally referenced origin or uses `JUPYTEREXCEL_PUBLIC_URL`.
 
 Duplicate worksheet-function IDs are rejected because Office requires every metadata ID to be unique. Ribbon functions do not participate in that worksheet metadata.

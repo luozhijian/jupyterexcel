@@ -1,10 +1,13 @@
 import json
+import logging
+from types import SimpleNamespace
+from jupyterexcel.assets import AssetStore
 import tempfile
 from pathlib import Path
 import unittest
 import xml.etree.ElementTree as ET
 
-from jupyterexcel.office_addin import discover_notebooks, functions_javascript, functions_metadata, manifest_xml, scan_notebook
+from jupyterexcel.office_addin import discover_notebooks, functions_javascript, functions_metadata, scan_notebook
 
 
 NOTEBOOK = {"cells": [
@@ -41,8 +44,8 @@ class OfficeAddinTests(unittest.TestCase):
         script = functions_javascript(discover_notebooks(FakeContentsManager()), "https://localhost:3000")
         self.assertIn("/Excel/ADD", script)
         self.assertIn('CustomFunctions.associate("ADD"', script)
-        self.assertIn("headers.Authorization = 'token ' + auth.token", script)
-        self.assertIn("if (typeof document !== 'undefined')", script)
+        self.assertIn("Authorization: 'token ' + auth.token", script)
+        self.assertIn("if (!present) throw new Error(MISSING_TOKEN_MESSAGE)", script)
         self.assertIn("body: JSON.stringify(args)", script)
 
     def test_custom_runtime_is_bundled_before_registrations(self):
@@ -59,11 +62,25 @@ class OfficeAddinTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 functions_javascript([], 'https://api.example.com', templates)
 
-    def test_manifest_uses_generated_routes_and_is_well_formed(self):
-        manifest = manifest_xml("https://localhost:3000")
-        ET.fromstring(manifest)
-        self.assertIn("https://localhost:3000/public/functions.js", manifest)
-        self.assertIn("https://localhost:3000/public/functions.json", manifest)
+    def test_manifest_template_is_rendered_with_asset_urls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            app = SimpleNamespace(
+                web_app=SimpleNamespace(settings={'base_url': '/'}),
+                port=8888, log=logging.getLogger('test'))
+            store = AssetStore(app, output_dir=output, asset_url='https://assets.example/addin')
+            store._render(output, [])
+            manifest = (output / 'manifest.xml').read_text(encoding='utf-8')
+            tree = ET.fromstring(manifest)
+            ns = {'bt': 'http://schemas.microsoft.com/office/officeappbasictypes/1.0'}
+            urls = {e.get('id'): e.get('DefaultValue') for e in tree.findall('.//bt:Url', ns)}
+            self.assertEqual(urls['Functions.Script.Url'], 'https://assets.example/addin/functions.js')
+            self.assertEqual(urls['Functions.Metadata.Url'], 'https://assets.example/addin/functions.json')
+            self.assertNotIn('{{ASSET_BASE_URL}}', manifest)
+            template = ET.parse(store.templates / 'manifest.xml')
+            self.assertEqual(
+                tree.find(".//bt:String[@id='Functions.Namespace']", ns).attrib,
+                template.find(".//bt:String[@id='Functions.Namespace']", ns).attrib)
 
 
 if __name__ == "__main__":

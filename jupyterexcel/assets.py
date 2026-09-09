@@ -16,8 +16,7 @@ from .office_addin import scan_notebook, functions_metadata, functions_javascrip
 
 
 def version_stamp(now):
-    digits = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    return f'{now.year % 100:02d}{digits[now.month]}{digits[now.day]}{digits[now.hour]}{now.minute:02d}{now.second:02d}'
+    return now.strftime('%Y%m%d%H%M%S')
 
 
 class AssetStore:
@@ -131,7 +130,7 @@ class AssetStore:
             state = json.loads((self.root / 'current.json').read_text(encoding='utf-8'))
             version = state['version']
             files = state['files']
-            if state.get('fingerprint') != fingerprint or not re.fullmatch(r'[0-9A-Z]{9}', version):
+            if state.get('fingerprint') != fingerprint or not re.fullmatch(r'[0-9]{14}', version):
                 return False
             expected = set(expected_names)
             if set(files) != expected:
@@ -215,7 +214,7 @@ class AssetStore:
         asset = asset.removeprefix('public/')
         if asset.startswith('versions/'):
             parts = asset.split('/')
-            if len(parts) < 3 or not re.fullmatch(r'[0-9A-Z]{9}', parts[1]):
+            if len(parts) < 3 or not re.fullmatch(r'(?:[0-9]{14}|[0-9A-Z]{9})', parts[1]):
                 raise FileNotFoundError(asset)
             if not (self.root / 'versions' / parts[1] / '.ready').is_file():
                 raise FileNotFoundError(asset)

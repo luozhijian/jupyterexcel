@@ -20,6 +20,15 @@ class ExcelModeHandler(APIHandler):
     def initialize(self, executor, hub_user=None):
         self.executor, self.hub_user = executor, hub_user
 
+    async def prepare(self):
+        print(
+            "Excel incoming: method=%s origin=%s requested_headers=%s" %(
+            self.request.method,
+            self.request.headers.get("Origin"),
+            self.request.headers.get("Access-Control-Request-Headers") )
+        )
+        await super().prepare()
+
     @web.authenticated
     async def get(self, function_id):
         vv = self.get_query_argument('params', None)
@@ -73,6 +82,14 @@ def load_jupyter_server_extension(app):
     settings = app.web_app.settings
     if 'jupyterexcel_asset_store' in settings:
         return
+
+    print(
+    "Effective CORS settings: allow_origin=%r, allow_origin_pat=%r"%(
+    app.web_app.settings.get("allow_origin"),
+    app.web_app.settings.get("allow_origin_pat"))
+    )
+
+
     hub_user = os.environ.get('JUPYTERHUB_USER')
     store = AssetStore(app, username=hub_user)
     executor = SharedKernelExecutor(app.kernel_manager, app.session_manager, app.contents_manager,

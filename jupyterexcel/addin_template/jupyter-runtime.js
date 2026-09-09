@@ -204,6 +204,25 @@ async function clearAuth() {
   if (storageAvailable()) await OfficeRuntime.storage.removeItem(authKey);
 }
 
+const MISSING_TOKEN_MESSAGE = "No Jupyter access token is available. Click 'Input Access Token' in the Excel ribbon, verify and save your token, then recalculate the formula.";
+async function resolveAuth() {
+  return typeof globalThis.jupyterExcelAuth === 'function'
+    ? await globalThis.jupyterExcelAuth() : await readAuth();
+}
+function hasAccessToken(auth) {
+  return typeof auth?.token === 'string' && auth.token.trim().length > 0;
+}
+async function getAuthStatus() {
+  try {
+    const present = hasAccessToken(await resolveAuth());
+    return {state: present ? 'present' : 'missing', message: present
+      ? 'Token is available. Presence does not confirm validity or permissions.'
+      : MISSING_TOKEN_MESSAGE};
+  } catch (_) {
+    return {state: 'unavailable', message: "Cannot read the Jupyter access token. Open 'Input Access Token' and verify and save it again. If this persists, check Office storage access."};
+  }
+}
+
 async function validateToken(token) {
   if (!token) throw new Error('Enter an access token.');
   const base = new URL(config.apiBase.replace(/\/$/, '') + '/');
@@ -228,6 +247,7 @@ async function validateToken(token) {
 }
 
 async function call(endpoint, suppliedArgs) {
+
   const args = suppliedArgs.slice();
   while (args.length && args[args.length - 1] === undefined) args.pop();
   const url = new URL(endpoint);
@@ -237,70 +257,42 @@ async function call(endpoint, suppliedArgs) {
   }
   const functionName = decodeURIComponent(endpoint.split(/[?#]/, 1)[0].replace(/\/+$/, '').split('/').pop());
   const startedAt = Date.now();
-  const auth = typeof globalThis.jupyterExcelAuth === 'function'
-    ? await globalThis.jupyterExcelAuth() : await readAuth();
-  const headers = { "Content-Type": "application/json"};
-  // Preserve the generated path across Office URL implementations.
-  let requestUrl = endpoint;
-  if (auth.token) {
-      headers.Authorization = 'token ' + auth.token;
-  }
-  if (!auth.token && typeof document !== 'undefined') {
-    const match = document.cookie.match(/(?:^|; )_xsrf=([^;]*)/);
-    if (match) headers['X-XSRFToken'] = decodeURIComponent(match[1]);
-  }
-  writeLog('INFO', functionName, 'request.started', 'Calling Jupyter', {argumentCount: args.length});
   try {
-    console.log("JupyterExcel request diagnostic", JSON.stringify({
-  endpoint: endpoint.split('?')[0],
-  hasToken: Boolean(auth.token),
-  storageAvailable: storageAvailable(),
-  hasDocument: typeof document !== "undefined"
-}));
-
-
-const testUrl = requestUrl
-  + (requestUrl.includes('?') ? '&' : '?')
-  + 'params=' + encodeURIComponent(JSON.stringify(args))
-  + (auth.token ? '&token=' + encodeURIComponent(auth.token) : '');
-
-const response = await fetch(testUrl, {
-  method: 'GET',
-  credentials: 'omit'
-});
-
-
-// const testUrl = endpoint
-//   + (endpoint.includes('?') ? '&' : '?')
-//   + 'params=' + encodeURIComponent(JSON.stringify(args));
-
-// const response = await fetch(testUrl, {
-//   method: 'GET',
-//   credentials: 'omit',
-//   headers: headers
-// });
-
-
-    // const response = await fetch(requestUrl, {
-    //   method: 'POST', credentials: auth.token ? 'same-origin' : 'include',
-    //   headers
-    //   // , body: JSON.stringify(args)
-    //   , body:  args
-    // });
-
-    const value = await response.json();
-    if (!response.ok || !value.ok) throw new Error(value.error?.message || `Jupyter returned ${response.status}`);
+    const auth = await resolveAuth();
+    const present = hasAccessToken(auth);
+    writeLog(present ? 'INFO' : 'ERROR', functionName, 'auth.checked',
+      present ? 'Jupyter access token is available; sending request.' : MISSING_TOKEN_MESSAGE,
+      {credentialPresent: present});
+    if (!present) throw new Error(MISSING_TOKEN_MESSAGE);
+    writeLog('INFO', functionName, 'request.started', 'Calling Jupyter', {argumentCount: args.length});
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: {
+        Authorization: 'token ' + auth.token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(args)
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      let message = `Jupyter returned HTTP ${response.status}`;
+      try { message = JSON.parse(text).error?.message || message; } catch (_) {}
+      throw new Error(message);
+    }
+    const value = JSON.parse(text);
+    if (!value.ok) throw new Error(value.error?.message || 'Jupyter execution failed');
     writeLog('INFO', functionName, 'request.completed', 'Result returned to Excel', {
       status: response.status, durationMs: Date.now() - startedAt
     });
     return value.result;
   } catch (error) {
-    // Do not persist URLs, arguments, returned values, or exception text.
-    writeLog('ERROR', functionName, 'request.failed', error, {durationMs: Date.now() - startedAt});
+    // Preserve useful error details; writeLog redacts sensitive values.
+    writeLog('ERROR', functionName, 'request.failed', error?.text ?? error?.message ?? 'Jupyter request failed', {durationMs: Date.now() - startedAt});
     throw error;
   }
 }
-return {call, readAuth, saveAuth, clearAuth, validateToken,
+return {call, readAuth, saveAuth, clearAuth, validateToken, getAuthStatus,
   writeLog, readLogs, readLogSettings, writeLogSettings, clearLogs, summarizeArguments,
   flushLogs: () => writeQueue};
 

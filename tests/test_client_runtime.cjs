@@ -14,7 +14,7 @@ function context(config = {}, data = new Map()) {
       setItem: async (key,value) => {data.set(key,value);},
       removeItem: async key => {data.delete(key);}
     }},
-    fetch: async (url, options) => {calls.push({url,options}); return {ok:true,status:200,json:async()=>({ok:true,result:42,name:'alice'})};}
+    fetch: async (url, options) => {calls.push({url,options}); return {ok:true,status:200,json:async()=>({ok:true,result:42,name:'alice'}),text:async()=>JSON.stringify({ok:true,result:42})};}
   };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox);
@@ -35,12 +35,12 @@ test('DOM-free runtime shares scoped credentials and retains nested arrays', asy
   await assert.rejects(two.api.call('https://evil.example.com/Excel/SUM', []),/outside/);
 });
 
-test('single user uses query token and checks the correct identity endpoint', async () => {
+test('single user uses header token and checks the correct identity endpoint', async () => {
   const c = context({hubUser:null,apiBase:'https://api.example.com/base'});
   await c.api.saveAuth({token:'abc+def'});
   await c.api.call('https://api.example.com/base/Excel/ADD',[1,2]);
-  assert.equal(new URL(c.calls[0].url).searchParams.get('token'),'abc+def');
-  assert.equal(c.calls[0].options.headers.Authorization,undefined);
+  assert.equal(new URL(c.calls[0].url).searchParams.get('token'),null);
+  assert.equal(c.calls[0].options.headers.Authorization,'token abc+def');
   assert.equal(c.calls[0].options.headers['Content-Type'],'application/json');
   assert.equal(c.calls[0].options.method,'POST');
   assert.equal(c.calls[0].options.body,'[1,2]');
@@ -78,4 +78,32 @@ test('Hub rejects a token belonging to another user', async () => {
   const c = context();
   c.sandbox.fetch = async()=>({ok:true,status:200,json:async()=>({name:'bob'})});
   await assert.rejects(c.api.validateToken('wrong-user'),/different/);
+});
+
+test('missing token is actionable, logged, and never sends a request', async () => {
+  const c = context();
+  await c.api.writeLogSettings({enabled:true,level:'VERBOSE'});
+  assert.equal((await c.api.getAuthStatus()).state,'missing');
+  await assert.rejects(c.api.call('https://api.example.com/user/alice/Excel/SUM',[]),/Input Access Token/);
+  assert.equal(c.calls.length,0);
+  await c.api.flushLogs();
+  const logs = await c.api.readLogs();
+  assert.ok(logs.some(e=>e.event==='auth.checked' && e.details.credentialPresent===false));
+  assert.ok(logs.some(e=>e.event==='request.failed' && /Input Access Token/.test(e.message)));
+  await c.api.saveAuth({token:'   '});
+  assert.equal((await c.api.getAuthStatus()).state,'missing');
+  await c.api.saveAuth({token:'sensitive-value'});
+  const status = await c.api.getAuthStatus();
+  assert.equal(status.state,'present');
+  assert.ok(!JSON.stringify(status).includes('sensitive-value'));
+  await c.api.clearAuth();
+  assert.equal((await c.api.getAuthStatus()).state,'missing');
+});
+
+test('status distinguishes unreadable storage from a missing token', async () => {
+  const c = context();
+  c.sandbox.OfficeRuntime.storage.getItem=async()=>{throw new Error('private storage error');};
+  const status = await c.api.getAuthStatus();
+  assert.equal(status.state,'unavailable');
+  assert.ok(!status.message.includes('private storage error'));
 });

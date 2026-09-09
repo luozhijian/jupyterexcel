@@ -65,7 +65,7 @@ function list is retained inside the merged debug-log task pane. Notebook ribbon
 
 Output is `<jupyter --data-dir>/excel-addin/`, with a username subfolder on Hub.
 Unsafe username path characters are percent-encoded. Complete batches live in
-`versions/<YYMDHmmss>/`; `current.json` points to the latest batch. The output root also contains stable manifest.xml, functions.js, functions.json, and HTML files for a separate static web server. Older immutable batches remain available for rollback.
+`versions/<yyyyMMddHHmmss>/`; `current.json` points to the latest batch. The output root also contains stable manifest.xml, functions.js, functions.json, and HTML files for a separate static web server. Older immutable batches remain available for rollback.
 Retention cleanup is deferred. Colliding timestamps wait for the next
 local-clock second. Generation failures retain the previous published batch.
 
@@ -388,3 +388,24 @@ are rejected. Blank/text handling is the Python function's responsibility.
 Restart Jupyter Server, save to regenerate assets, and reload the Excel add-in
 metadata after changing a parameter to repeating.
 
+
+## Shared browser runtime
+
+The packaged manifest requires SharedRuntime 1.1 and uses Taskpane.Url with
+lifetime="long" for the runtime, custom-functions page, commands, and task pane.
+taskpane.html loads generated functions.js (configuration, runtime, associations),
+commands.js, and taskpane.js in that order. Do not also load jupyter-runtime.js
+on that page. The debug log is available without a query-string navigation.
+Worksheet calls POST a JSON array and send supplied tokens in Authorization;
+token-authenticated requests omit cookies. Server authentication/CORS is unchanged.
+
+Restart the server using this source package and save a notebook to regenerate
+assets. Remove the old sideloaded add-in and sideload the regenerated manifest.
+In the task-pane console, verify SharedRuntime 1.1 support and recalculate a
+worksheet function while watching Network for its POST. Live Excel validation
+is necessary; Node tests cannot reproduce the Office runtime.
+
+Asset versions now use 14-digit local timestamps, for example `20260909102018`.
+The first generation after upgrading replaces an old-format current version;
+existing archived versions remain readable. Unchanged subsequent saves reuse
+the current version as before.

@@ -2,10 +2,10 @@
 
 import ast
 import json
+import logging
 import os
 from pathlib import Path
 from dataclasses import dataclass, field
-from html import escape
 from urllib.parse import quote
 from .metadata import validate_metadata
 
@@ -225,22 +225,15 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None):
     return prefix + template.replace('{{FUNCTIONS_RUNTIME}}', runtime).replace('{{FUNCTION_REGISTRATIONS}}', '\n'.join(registrations))
 
 
-def manifest_xml(base_url, namespace="JUPYTER"):
-    base = escape(base_url.rstrip("/"), quote=True)
-    return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
-  <Id>ecd32651-9adc-4ba5-9e5e-3643d95d9b17</Id><Version>1.0.0.0</Version><ProviderName>JupyterExcel</ProviderName><DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="JupyterExcel"/><Description DefaultValue="Use decorated Jupyter functions in Excel."/><IconUrl DefaultValue="{base}/static/base/images/favicon.ico"/><HighResolutionIconUrl DefaultValue="{base}/static/base/images/favicon.ico"/><SupportUrl DefaultValue="{base}/taskpane.html"/>
-  <AppDomains><AppDomain>{base}</AppDomain></AppDomains><Hosts><Host Name="Workbook"/></Hosts><Requirements><Sets DefaultMinVersion="1.1"><Set Name="CustomFunctionsRuntime" MinVersion="1.1"/></Sets></Requirements><DefaultSettings><SourceLocation DefaultValue="{base}/taskpane.html"/></DefaultSettings><Permissions>ReadWriteDocument</Permissions>
-  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0"><Hosts><Host xsi:type="Workbook"><AllFormFactors><ExtensionPoint xsi:type="CustomFunctions"><Script><SourceLocation resid="Functions.Script.Url"/></Script><Page><SourceLocation resid="Functions.Page.Url"/></Page><Metadata><SourceLocation resid="Functions.Metadata.Url"/></Metadata><Namespace resid="Functions.Namespace"/></ExtensionPoint></AllFormFactors><DesktopFormFactor><FunctionFile resid="Commands.Url"/><ExtensionPoint xsi:type="PrimaryCommandSurface"><OfficeTab id="TabHome"><Group id="CommandsGroup"><Label resid="CommandsGroup.Label"/><Control xsi:type="Button" id="TaskpaneButton"><Label resid="TaskpaneButton.Label"/><Supertip><Title resid="TaskpaneButton.Label"/><Description resid="TaskpaneButton.Tooltip"/></Supertip><Action xsi:type="ShowTaskpane"><TaskpaneId>JupyterExcel.Taskpane</TaskpaneId><SourceLocation resid="Taskpane.Url"/></Action></Control></Group></OfficeTab></ExtensionPoint></DesktopFormFactor></Host></Hosts>
-  <Resources><bt:Urls><bt:Url id="Functions.Script.Url" DefaultValue="{base}/public/functions.js"/><bt:Url id="Functions.Metadata.Url" DefaultValue="{base}/public/functions.json"/><bt:Url id="Functions.Page.Url" DefaultValue="{base}/public/functions.html"/><bt:Url id="Commands.Url" DefaultValue="{base}/commands.html"/><bt:Url id="Taskpane.Url" DefaultValue="{base}/taskpane.html"/></bt:Urls><bt:ShortStrings><bt:String id="Functions.Namespace" DefaultValue="{namespace}"/><bt:String id="CommandsGroup.Label" DefaultValue="JupyterExcel"/><bt:String id="TaskpaneButton.Label" DefaultValue="JupyterExcel"/></bt:ShortStrings><bt:LongStrings><bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open JupyterExcel"/></bt:LongStrings></Resources></VersionOverrides>
-</OfficeApp>""".format(base=base, namespace=escape(namespace, quote=True))
-
-
 def public_url(server_app):
     configured = os.environ.get("JUPYTEREXCEL_PUBLIC_URL")
     if configured:
         return configured.rstrip("/")
+    logger = getattr(server_app, "log", None) or logging.getLogger(__name__)
+    logger.error(
+        "JUPYTEREXCEL_PUBLIC_URL is not set or is empty; "
+        "continuing with a URL derived from the Jupyter server settings."
+    )
     scheme = "https" if getattr(server_app, "certfile", "") else "http"
     host = getattr(server_app, "ip", "") or "localhost"
     if host in {"0.0.0.0", "::", "*"}:

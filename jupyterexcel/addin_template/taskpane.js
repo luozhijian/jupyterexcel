@@ -13,16 +13,33 @@ const DEBUG_LOG_EXPANDED_KEY = "jupyter.ui.v1.debugLog.expanded";
 Office.onReady(async () => {
   document.getElementById("sideload-msg").style.display = "none";
   document.getElementById("app-body").style.display = "flex";
-  const requestedSection = new URLSearchParams(window.location.search).get("section");
-  document.getElementById("debug-log-section").hidden = requestedSection !== "debug-log";
+  // The shared runtime uses one canonical task-pane URL for all entry points.
+  document.getElementById("debug-log-section").hidden = false;
   bindControls();
   setDebugSectionExpanded(readExpandedPreference());
   const settings = await readLogSettings();
   document.getElementById("logging-enabled").checked = settings.enabled;
   document.getElementById("logging-mode").value = settings.level;
+  await refreshAuthStatus();
   await refreshLogs();
   setInterval(refreshLogs, 750);
+  setInterval(refreshAuthStatus, 2000);
 });
+
+let authStatusPending = false;
+async function refreshAuthStatus() {
+  if (authStatusPending) return;
+  authStatusPending = true;
+  try {
+    const status = await globalThis.JupyterExcel.getAuthStatus();
+    document.getElementById('auth-status-banner').dataset.state = status.state;
+    document.getElementById('auth-status-title').textContent = status.state === 'present'
+      ? 'Token available' : status.state === 'missing' ? 'NO JUPYTER ACCESS TOKEN' : 'CANNOT READ ACCESS TOKEN';
+    document.getElementById('auth-status-message').textContent = status.message;
+  } finally {
+    authStatusPending = false;
+  }
+}
 
 function bindControls() {
   document.getElementById("debug-log-collapse").onclick = toggleDebugSection;

@@ -35,3 +35,8 @@ button, input, select { font: inherit; }
 .level-info { border-left-color: #157347; }
 .level-warn { border-left-color: #c77700; }
 .level-error { border-left-color: #c42b1c; }
+
+.auth-status-banner { padding: 12px; border-left: 5px solid #777; background: #f3f3f3; color: #242424; }
+.auth-status-banner p { margin: 5px 0 0; line-height: 1.45; }
+.auth-status-banner[data-state="missing"], .auth-status-banner[data-state="unavailable"] { border-color: #b42318; background: #fff0ed; color: #8a1c13; }
+.auth-status-banner[data-state="present"] { border-color: #157347; background: #edf7ef; color: #125b38; }

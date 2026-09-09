@@ -164,8 +164,8 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(store.resolve('versions/'+first+'/functions.js').exists())
 
     def test_timestamp(self):
-        self.assertEqual(version_stamp(datetime(2026,10,15,14,5,9)), '26AFE0509')
-        self.assertEqual(version_stamp(datetime(2026,12,31,0,0,0)), '26CV00000')
+        self.assertEqual(version_stamp(datetime(2026,10,15,14,5,9)), '20261015140509')
+        self.assertEqual(version_stamp(datetime(2026,12,31,0,0,0)), '20261231000000')
 
 
 class KernelTests(unittest.IsolatedAsyncioTestCase):

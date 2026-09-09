@@ -8,8 +8,10 @@
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
     <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css" />
     <link href="taskpane.css" rel="stylesheet" type="text/css" />
-<script defer src="jupyter-config.js"></script>
-<script defer src="jupyter-runtime.js"></script>
+    <link rel="icon" type="image/png" href="assets/icon-32.png">
+<!-- Generated functions.js includes configuration, runtime, and registrations. -->
+<script defer src="functions.js"></script>
+<script defer src="commands.js"></script>
 <script defer src="taskpane.js"></script>
 </head>
 <body class="ms-font-m ms-Fabric">
@@ -24,6 +26,10 @@
             <span id="compact-log-count" class="compact-log-count">0 logs</span>
             <label class="toggle"><input id="logging-enabled" type="checkbox" /> Logging</label>
         </header>
+        <div id="auth-status-banner" class="auth-status-banner" role="status" aria-live="polite">
+          <strong id="auth-status-title">Checking access token…</strong>
+          <p id="auth-status-message">Checking whether a token is available for Jupyter requests.</p>
+        </div>
         <div id="debug-log-content" class="debug-log-content">
           <section class="controls" aria-label="Log controls">
             <label>Mode<select id="logging-mode"><option value="NORMAL">Normal</option><option value="VERBOSE">Verbose</option></select></label>
