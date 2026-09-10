@@ -83,7 +83,7 @@ def load_jupyter_server_extension(app):
     if 'jupyterexcel_asset_store' in settings:
         return
 
-    print(
+    app.log.info(
     "Effective CORS settings: allow_origin=%r, allow_origin_pat=%r"%(
     app.web_app.settings.get("allow_origin"),
     app.web_app.settings.get("allow_origin_pat"))
@@ -97,17 +97,17 @@ def load_jupyter_server_extension(app):
     settings['jupyterexcel_asset_store'] = store
     settings['jupyterexcel_executor'] = executor
     base = settings.get('base_url', '/')
-    is_hub = bool(hub_user)
 
+    if base == '/':
+        if hub_user:
+            #   user/username
+             base = '/user/%s/' % hub_user  
     # for hub, it will be forwarded as /hub/Excel/<function_id> and the hub will handle authentication
-    match_path = r'/Excel/([^/]+)'
-    if is_hub:
-        match_path = r'/hub' + match_path
+    match_path =  url_path_join(base,  r'/Excel/([^/]+)')
 
-    print(f"JupyterExcel: registering {match_path} for Excel function calls (hub_user={hub_user})")
-
+    app.log.info(f"JupyterExcel: registering {match_path} for Excel function calls (hub_user={hub_user})")
     app.web_app.add_handlers('.*$', [
-        (url_path_join(base, match_path), ExcelModeHandler, {'executor': executor, 'hub_user': hub_user}),
+        (match_path, ExcelModeHandler, {'executor': executor, 'hub_user': hub_user}),
     ])
 
     cm = app.contents_manager
