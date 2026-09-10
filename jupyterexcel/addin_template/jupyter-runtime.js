@@ -264,7 +264,7 @@ async function call(endpoint, suppliedArgs) {
       present ? 'Jupyter access token is available; sending request.' : MISSING_TOKEN_MESSAGE,
       {credentialPresent: present});
     if (!present) throw new Error(MISSING_TOKEN_MESSAGE);
-    writeLog('INFO', functionName, 'request.started', 'Calling Jupyter', {argumentCount: args.length});
+    writeLog('INFO', functionName, 'request.started', 'Calling jupyter'  , {argumentCount: args.length, endpoint: endpoint.split(/[?#]/)[0]});
     const response = await fetch(endpoint, {
       method: 'POST',
       credentials: 'omit',
