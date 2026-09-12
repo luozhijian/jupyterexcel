@@ -16,13 +16,14 @@ async def resolved(value):
     return await value if inspect.isawaitable(value) else value
 
 
-def invoke_export(function_id, inputs):
+def invoke_export(function_id, inputs, action=None):
     """Runs inside the kernel; never evaluate a caller-supplied expression."""
     from IPython import get_ipython
     namespace = get_ipython().user_ns
     matches = {}
     for value in list(namespace.values()):
-        metadata = getattr(value, '__jupyterexcel_function__', None)
+        metadata = getattr(value, '__jupyterexcel_action__', None) if action is not False else None
+        metadata = metadata or (getattr(value, '__jupyterexcel_function__', None) if action is not True else None)
         if callable(value) and isinstance(metadata, dict):
             name = metadata.get('id', '')
             normalized = ''.join(c if c.isascii() and (c.isalnum() or c == '.') else '.' for c in name).upper().strip('.')
@@ -31,9 +32,13 @@ def invoke_export(function_id, inputs):
     if len(matches) != 1:
         return json.dumps({'ok': False, 'error': {'code': 'function_not_found' if not matches else 'duplicate_function', 'message': 'Expected one exported function in the selected kernel.'}})
     function = next(iter(matches.values()))
+    action = isinstance(getattr(function, "__jupyterexcel_action__", None), dict)
     try:
+        if action:
+            from .actions import validate_inputs
+            validate_inputs(function.__jupyterexcel_action__, inputs)
         inspect.signature(function).bind(*inputs)
-    except TypeError as error:
+    except (TypeError, ValueError) as error:
         return json.dumps({'ok': False, 'error': {'code': 'invalid_arguments', 'message': str(error)}})
     try:
         result = function(*inputs)
@@ -41,9 +46,16 @@ def invoke_export(function_id, inputs):
             if inspect.iscoroutine(result):
                 result.close()
             raise TypeError('Async worksheet functions are not supported in this version.')
+        if action:
+            from .actions import validate_result
+            validate_result(function.__jupyterexcel_action__, result)
         return json.dumps({'ok': True, 'result': result}, allow_nan=False)
     except Exception as error:
         return json.dumps({'ok': False, 'error': {'code': 'execution_failed', 'message': str(error)}})
+
+
+def invoke_action(function_id, inputs):
+    return invoke_export(function_id, inputs, action=True)
 
 
 class KernelExecutor:
@@ -52,7 +64,7 @@ class KernelExecutor:
         self.reserved = set()
         self.lock = asyncio.Lock()
 
-    async def execute(self, function_id, inputs, idle_only=False):
+    async def execute(self, function_id, inputs, idle_only=False, action=None):
         async with self.lock:
             models = await resolved(self.manager.list_kernels())
             eligible = [m for m in models if not idle_only or m.get('execution_state') == 'idle']
@@ -74,6 +86,10 @@ class KernelExecutor:
             client.start_channels()
             # Literal JSON decoding prevents input strings from becoming Python code.
             expression = "__import__('jupyterexcel.execution', fromlist=['invoke_export']).invoke_export(%r, __import__('json').loads(%r))" % (function_id, json.dumps(inputs, allow_nan=False))
+            if action is False:
+                expression = expression[:-1] + ", action=False)"
+            if action is True:
+                expression = expression.replace("fromlist=['invoke_export']).invoke_export(", "fromlist=['invoke_action']).invoke_action(")
             message_id = client.execute('', silent=True, store_history=False,
                                         user_expressions={'excel': expression}, allow_stdin=False)
             async def reply():
@@ -139,16 +155,17 @@ class SharedKernelExecutor:
             elif model['type'] == 'notebook':
                 functions = [
                     function for function in scan_notebook(model['content'], path)
-                    if function.kind == 'jupyter'
+                    if function.kind == 'jupyter' or function.action
                 ]
                 for function in functions:
-                    if function.function_id in seen:
+                    key = function.function_id
+                    if key in seen:
                         raise ExecutionError(
                             500,
                             'duplicate_function',
                             'Duplicate exported function: ' + function.function_id,
                         )
-                    seen.add(function.function_id)
+                    seen.add(key)
                 if functions:
                     cells = []
                     for cell_number, cell in enumerate(model['content'].get('cells', []), 1):
@@ -214,7 +231,7 @@ class SharedKernelExecutor:
         finally:
             client.stop_channels()
 
-    async def execute(self, function_id, inputs, idle_only=False):
+    async def execute(self, function_id, inputs, idle_only=False, action=None):
         async with self.lock:
             kernel_id = await self._ensure_kernel()
             models = await resolved(self.manager.list_kernels())
@@ -238,4 +255,5 @@ class SharedKernelExecutor:
             return await KernelExecutor(SelectedKernel(), self.timeout).execute(
                 function_id,
                 inputs,
+                **({"action": action} if action is not None else {}),
             )

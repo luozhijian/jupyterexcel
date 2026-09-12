@@ -41,6 +41,10 @@ class ExcelModeHandler(APIHandler):
             return
         await self.call(function_id, self.request.body)
 
+    async def execute_export(self, function_id, params):
+        return await self.executor.execute(function_id, params, idle_only=bool(self.hub_user),
+                                           **({"action": False} if self.request.method == "GET" else {}))
+
     def fail(self, status, code, message):
         self.set_status(status)
         self.finish({'ok': False, 'error': {'code': code, 'message': message}})
@@ -66,7 +70,7 @@ class ExcelModeHandler(APIHandler):
                 raise ExecutionError(400, 'params', 'Params must be valid JSON.') from None
             if not isinstance(params, list):
                 raise ExecutionError(400, 'params', 'Params must be a JSON array.')
-            result = await self.executor.execute(function_id, params, idle_only=bool(self.hub_user))
+            result = await self.execute_export(function_id, params)
             if not result['ok']:
                 code = result['error']['code']
                 self.set_status(404 if code == 'function_not_found' else 400 if code == 'invalid_arguments' else 500)

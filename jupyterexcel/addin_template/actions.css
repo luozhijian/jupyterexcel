@@ -1,0 +1,17 @@
+#notebook-actions { padding: 16px; border-bottom: 1px solid #ccc; }
+#notebook-actions label, #action-inputs section { display: block; margin: 10px 0; }
+#action-inputs { border: 0; padding: 0; min-width: 0; }
+#notebook-actions select, #notebook-actions input:not([type=checkbox]), #notebook-actions textarea { box-sizing: border-box; width: 100%; padding: 6px; }
+#notebook-actions button { margin: 4px 4px 4px 0; padding: 6px 10px; cursor: pointer; }
+#notebook-actions button:disabled { cursor: default; opacity: .55; }
+#action-result { overflow: auto; max-height: 400px; }
+#notebook-actions table { border-collapse: collapse; width: 100%; }
+#notebook-actions td, #notebook-actions th { border: 1px solid #ccc; padding: 6px; text-align: left; }
+#action-status { white-space: pre-wrap; }
+#action-dialog { max-width: 90%; max-height: 80%; overflow: auto; }
+#notebook-actions [hidden] { display: none !important; }
+
+.range-picking { outline: 2px solid #0078d4; background: #eef6ff; }
+
+.action-summary { cursor: pointer; }
+.action-summary h2 { display: inline; margin: 0; font-size: 1.2em; }

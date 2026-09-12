@@ -13,21 +13,41 @@
 <script defer src="functions.js"></script>
 <script defer src="commands.js"></script>
 <script defer src="taskpane.js"></script>
+<script defer src="actions.js"></script>
+<link rel="stylesheet" href="actions.css" />
 </head>
 <body class="ms-font-m ms-Fabric">
-    <section id="sideload-msg" class="loading"><p>Loading Jupyter Excel debug log…</p></section>
+    <section id="sideload-msg" class="loading"><p>Loading Jupyter Excel debug logâ€¦</p></section>
     <main id="app-body" style="display: none;">
+      <section id="notebook-actions" aria-label="Notebook Actions">
+        <details id="action-details" open>
+        <summary class="action-summary"><h2>Notebook Actions</h2></summary>
+        <label>Action <select id="action-select"></select></label>
+        <button id="action-refresh" type="button">Refresh actions</button>
+        <p id="action-description"></p>
+        <p>Cells are read when you run. Manual fills only; hidden and filtered cells are included. Results are snapshots: run again after editing cells or colors.</p>
+        <fieldset id="action-inputs"></fieldset>
+        <button id="action-run" type="button" disabled>Run</button>
+        <p id="action-status" role="status" aria-live="polite"></p>
+        <label id="action-target-label" hidden>Starting Cell <input id="action-target" readonly placeholder="Click here, then select one cell in Excel" /></label>
+        <button id="action-write" type="button" hidden>Write to cells</button>
+        <div id="action-result"></div>
+        <button id="action-popup" type="button" hidden>Show dialog</button>
+        <button id="action-updates" type="button" hidden>Apply input updates</button>
+        <dialog id="action-dialog"><div id="action-dialog-content"></div><button id="action-dialog-close" type="button">Close</button></dialog>
+        </details>
+      </section>
       <section id="debug-log-section" class="debug-log-section">
         <header class="app-header">
-            <button id="debug-log-collapse" class="collapse-button" type="button" aria-expanded="false" aria-controls="debug-log-content">
-                <span id="collapse-icon" class="collapse-icon" aria-hidden="true">▸</span>
+            <button id="debug-log-collapse" class="collapse-button" type="button" aria-expanded="false" aria-controls="debug-log-content auth-status-banner">
+                <span id="collapse-icon" class="collapse-icon" aria-hidden="true">â–¸</span>
                 <span><strong>Debug Log</strong><small>Jupyter custom-function diagnostics</small></span>
             </button>
             <span id="compact-log-count" class="compact-log-count">0 logs</span>
             <label class="toggle"><input id="logging-enabled" type="checkbox" /> Logging</label>
         </header>
         <div id="auth-status-banner" class="auth-status-banner" role="status" aria-live="polite">
-          <strong id="auth-status-title">Checking access token…</strong>
+          <strong id="auth-status-title">Checking access tokenâ€¦</strong>
           <p id="auth-status-message">Checking whether a token is available for Jupyter requests.</p>
         </div>
         <div id="debug-log-content" class="debug-log-content">

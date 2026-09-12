@@ -34,8 +34,13 @@ async function refreshAuthStatus() {
     const status = await globalThis.JupyterExcel.getAuthStatus();
     document.getElementById('auth-status-banner').dataset.state = status.state;
     document.getElementById('auth-status-title').textContent = status.state === 'present'
-      ? 'Token available' : status.state === 'missing' ? 'NO JUPYTER ACCESS TOKEN' : 'CANNOT READ ACCESS TOKEN';
+      ? 'Token available' : status.state === 'missing' ? 'NO JUPYTER ACCESS TOKEN'
+      : status.state === 'failed' ? 'JUPYTER AUTHORIZATION FAILED' : 'CANNOT READ ACCESS TOKEN';
     document.getElementById('auth-status-message').textContent = status.message;
+  } catch (_) {
+    document.getElementById('auth-status-banner').dataset.state = 'unavailable';
+    document.getElementById('auth-status-title').textContent = 'CANNOT CHECK ACCESS TOKEN';
+    document.getElementById('auth-status-message').textContent = 'Open Input Access Token to verify your authorization.';
   } finally {
     authStatusPending = false;
   }
@@ -150,7 +155,7 @@ function setDebugSectionExpanded(expanded) {
   const button = document.getElementById("debug-log-collapse");
   section.classList.toggle("collapsed", !expanded);
   button.setAttribute("aria-expanded", String(expanded));
-  document.getElementById("collapse-icon").textContent = expanded ? "▾" : "▸";
+  document.getElementById("collapse-icon").textContent = expanded ? "â–¾" : "â–¸";
   writeExpandedPreference(expanded);
 }
 

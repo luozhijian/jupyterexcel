@@ -1,12 +1,16 @@
 # JupyterExcel Architecture
 
+## Notebook Actions
+
+The reusable shared task pane discovers literal ribbon action metadata and calls authenticated POST endpoints under /Excel/. Python results can be displayed or explicitly written to selected cells. See [NOTEBOOK_ACTIONS.md](NOTEBOOK_ACTIONS.md) for the contract, SumGroupByColor demo, and current limits.
+
 ## Implemented rewrite
 
 `ExcelModeHandler` now accepts GET `params` or a POST JSON array at
 `/Excel/<function-id>`. `execution.py` creates one managed Python session per server on the first Excel call.
 Its readable session name is `JupyterExcel - <username> - <number>`; the kernel
 UUID remains the execution identity. Calls are serialized and reuse this kernel.
-Notebooks containing worksheet exports are discovered recursively through the
+Notebooks containing worksheet or action exports are discovered recursively through the
 ContentsManager and their code cells execute in path order in a shared namespace.
 Initialization occurs once per kernel lifetime, including after manual restart.
 Saving still only generates assets; it does not rerun code or reset debug state.

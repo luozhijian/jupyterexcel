@@ -68,7 +68,22 @@ def get_jupyter_functions():
     return list(jupyterexcel_functions.values())
 
 
-def ribbon_function(name, return_value, **kwargs):
+def ribbon_function(name, return_value=None, *, inputs=None, output=None,
+                    label=None, button_text='Run', description='', **kwargs):
+    if inputs is not None:
+        from .actions import action_schema
+        schema = action_schema(name, inputs, output, label, button_text, description)
+        def decorate(function):
+            parameters = list(inspect.signature(function).parameters.values())
+            if any(p.kind not in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) for p in parameters):
+                raise ValueError('Actions use named positional inputs; use repeatable metadata for lists.')
+            if [p.name for p in parameters] != list(inputs):
+                raise ValueError('Action inputs must match the function signature in order.')
+            function.__jupyterexcel_action__ = schema
+            return function
+        return decorate
+    # Preserve existing VBA-oriented decorator behavior.
+
     def wrap(function):
         global jupyterexcel_ribbon_functions
         temp_dict ={}

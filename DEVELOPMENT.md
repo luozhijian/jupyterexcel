@@ -1,5 +1,9 @@
 # JupyterExcel Development
 
+## Notebook Actions
+
+See [NOTEBOOK_ACTIONS.md](NOTEBOOK_ACTIONS.md) for the reusable task pane and Python SumGroupByColor example. Client checks: node --test tests/test_actions_client.cjs tests/test_client_runtime.cjs tests/test_dialog_command.cjs. Live Excel verification is required for range selection, fill reads, dialogs, and writes.
+
 ## Requirements
 
 - Windows, macOS, or Linux for the Python server.

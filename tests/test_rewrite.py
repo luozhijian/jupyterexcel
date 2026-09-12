@@ -27,7 +27,7 @@ TestHandler = ExcelModeHandler
 
 
 class FakeExecutor:
-    async def execute(self, name, inputs, idle_only=False):
+    async def execute(self, name, inputs, idle_only=False, **kwargs):
         return {'ok': True, 'result': [name, inputs, idle_only]}
 
 

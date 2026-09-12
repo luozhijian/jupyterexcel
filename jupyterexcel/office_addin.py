@@ -36,6 +36,7 @@ class NotebookFunction:
     parameters: list = field(default_factory=list)
     kind: str = "jupyter"
     result_dimensionality: str = "scalar"
+    action: dict = None
 
     @property
     def function_id(self):
@@ -65,6 +66,22 @@ def _function_from_ast(node, decorator, notebook):
     if kind not in {"jupyter_function", "ribbon_function"}:
         return None
     call = decorator if isinstance(decorator, ast.Call) else None
+    if kind == 'ribbon_function' and call and any(k.arg == 'inputs' for k in call.keywords):
+        from .actions import action_schema
+        try:
+            options = {k.arg: ast.literal_eval(k.value) for k in call.keywords}
+            if call.args:
+                if len(call.args) != 1 or 'name' in options:
+                    raise ValueError('Use one action name.')
+                options['name'] = ast.literal_eval(call.args[0])
+            schema = action_schema(**options)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f'{notebook}: {node.name}: invalid literal action metadata: {error}') from None
+        args = node.args.posonlyargs + node.args.args
+        if node.args.vararg or node.args.kwarg or node.args.kwonlyargs or [a.arg for a in args] != [f['name'] for f in schema['inputs']]:
+            raise ValueError('Action inputs must match positional parameters in order.')
+        return NotebookFunction(notebook, node.name, schema['id'], schema['description'], kind='ribbon', action=schema)
+
     keywords = {item.arg: _literal(item.value) for item in (call.keywords if call else [])}
     positional = [_literal(item) for item in (call.args if call else [])]
     if kind == "ribbon_function":
@@ -208,7 +225,7 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None):
     template = (templates / 'functions.js').read_text(encoding='utf-8')
     registrations = []
  
- 
+    #jupyter below means jupyter_function, ribbon means ribbon_function
     for item in (f for f in functions if f.kind == 'jupyter'):
         endpoint = base_url.rstrip('/')  + '/Excel/' + quote(item.function_id, safe='')
         # Office may append an invocation object after the worksheet parameters.
@@ -238,6 +255,6 @@ def public_url(server_app):
     host = getattr(server_app, "ip", "") or "localhost"
     if host in {"0.0.0.0", "::", "*"}:
         host = "localhost"
-    port = getattr(server_app, "port", 8888)
+    port = getattr(server_app, "port", None )
     base_path = server_app.web_app.settings.get("base_url", "/").strip("/")
-    return "%s://%s:%s%s" % (scheme, host, port, ("/" + base_path) if base_path else "")
+    return "%s://%s%s%s" % (scheme, host, (":" + str(port)) if port else "", ("/" + base_path) if base_path else "")

@@ -56,5 +56,18 @@
       accessTokenDialog?.messageChild(JSON.stringify({type:'error', message:'Token verification or shared storage failed.'}), {targetOrigin: window.location.origin});
     }
   }
+  async function openNotebookActions(event) {
+    try {
+      await Office.addin.showAsTaskpane();
+      const details = document.getElementById('action-details');
+      if (details) details.open = true;
+      document.getElementById('action-select')?.focus();
+    } catch (error) {
+      console.error('JupyterExcel could not open Notebook Actions', error.message);
+    } finally {
+      event.completed();
+    }
+  }
+  Office.actions.associate('openNotebookActions', openNotebookActions);
   Office.actions.associate('openAccessTokenDialog', openAccessTokenDialog);
 })();

@@ -192,6 +192,7 @@ function redact(value, depth = 0) {
 }
 
 const authKey = 'jupyter.auth.' + scope;
+let rejectedToken = null;
 async function readAuth() {
   if (!storageAvailable()) return {};
   return parseJson(await OfficeRuntime.storage.getItem(authKey), {});
@@ -214,7 +215,10 @@ function hasAccessToken(auth) {
 }
 async function getAuthStatus() {
   try {
-    const present = hasAccessToken(await resolveAuth());
+    const auth = await resolveAuth();
+    const present = hasAccessToken(auth);
+    if (present && rejectedToken === auth.token) return {state: 'failed',
+      message: 'Jupyter rejected authorization (HTTP 401 or 403). Check the token, permissions, and server user in Input Access Token.'};
     return {state: present ? 'present' : 'missing', message: present
       ? 'Token is available. Presence does not confirm validity or permissions.'
       : MISSING_TOKEN_MESSAGE};
@@ -241,12 +245,14 @@ async function validateToken(token) {
   if (config.hubUser) {
     const identity = await response.json();
     if (identity.name !== config.hubUser) throw new Error('The token belongs to a different JupyterHub user.');
+    if (rejectedToken === token) rejectedToken = null;
     return identity.name;
   }
+  if (rejectedToken === token) rejectedToken = null;
   return 'Single-user Jupyter';
 }
 
-async function call(endpoint, suppliedArgs) {
+async function call(endpoint, suppliedArgs, action = false) {
 
   const args = suppliedArgs.slice();
   while (args.length && args[args.length - 1] === undefined) args.pop();
@@ -265,16 +271,28 @@ async function call(endpoint, suppliedArgs) {
       {credentialPresent: present});
     if (!present) throw new Error(MISSING_TOKEN_MESSAGE);
     writeLog('INFO', functionName, 'request.started', 'Calling jupyter'  , {argumentCount: args.length, endpoint: endpoint.split(/[?#]/)[0]});
-    const response = await fetch(endpoint, {
+    const controller = action ? new AbortController() : null;
+    const timer = controller ? setTimeout(() => controller.abort(), 120000) : null;
+
+    console.log(`Calling Jupyter function ${functionName} ${endpoint} with arguments:`, args);
+    let response, text;
+    try { response = await fetch(endpoint, {
       method: 'POST',
       credentials: 'omit',
       headers: {
         Authorization: 'token ' + auth.token,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(args)
+      body: JSON.stringify(args),
+      ...(controller ? {signal: controller.signal} : {})
     });
-    const text = await response.text();
+    text = await response.text();
+    } catch (error) {
+      if (action && error.name === 'AbortError') throw new Error('Request timed out. Python may still be running; do not retry automatically.');
+      throw error;
+    } finally { if (timer) clearTimeout(timer); }
+    if (response.status === 401 || response.status === 403) rejectedToken = auth.token;
+    else if (response.ok && rejectedToken === auth.token) rejectedToken = null;
     if (!response.ok) {
       let message = `Jupyter returned HTTP ${response.status}`;
       try { message = JSON.parse(text).error?.message || message; } catch (_) {}
@@ -292,7 +310,11 @@ async function call(endpoint, suppliedArgs) {
     throw error;
   }
 }
-return {call, readAuth, saveAuth, clearAuth, validateToken, getAuthStatus,
+async function callAction(id, args) {
+  if (!/^[A-Za-z0-9.]+$/.test(id)) throw new Error('Invalid action ID.');
+  return call(config.apiBase.replace(/\/$/, '') + '/Excel/' + encodeURIComponent(id), args, true);
+}
+return {call, callAction, readAuth, saveAuth, clearAuth, validateToken, getAuthStatus,
   writeLog, readLogs, readLogSettings, writeLogSettings, clearLogs, summarizeArguments,
   flushLogs: () => writeQueue};
 

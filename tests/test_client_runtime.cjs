@@ -7,7 +7,7 @@ const source = fs.readFileSync(path.join(__dirname, '../jupyterexcel/addin_templ
 
 function context(config = {}, data = new Map()) {
   const calls = [];
-  const sandbox = {URL, console, Date, Math, JSON, Promise,
+  const sandbox = {URL, console, Date, Math, JSON, Promise, AbortController, setTimeout, clearTimeout,
     JupyterExcelConfig: {apiBase:'https://api.example.com/user/alice',hubUser:'alice',hubApiUrl:'https://api.example.com/hub/api/user',...config},
     OfficeRuntime:{storage:{
       getItem: async key => data.get(key),
@@ -33,6 +33,21 @@ test('DOM-free runtime shares scoped credentials and retains nested arrays', asy
   assert.deepEqual(JSON.parse(JSON.stringify(await two.api.readLogs())),[]);
   assert.equal((await context({apiBase:'https://other.example.com'},one.data).api.readAuth()).token,undefined);
   await assert.rejects(two.api.call('https://evil.example.com/Excel/SUM', []),/outside/);
+});
+
+test('actions use unified scoped POST and never send absent credentials', async () => {
+  const c=context();
+  await assert.rejects(c.api.callAction('GROUP',[]),/Input Access Token/);
+  assert.equal(c.calls.length,0);
+  await c.api.saveAuth({token:'action-secret'});
+  await c.api.callAction('GROUP',[{values:[[1]],format:{fillColors:[['']]}}]);
+  assert.equal(c.calls[0].url,'https://api.example.com/user/alice/Excel/GROUP');
+  assert.equal(c.calls[0].options.method,'POST');
+  assert.equal(c.calls[0].options.credentials,'omit');
+  assert.equal(c.calls[0].options.headers.Authorization,'token action-secret');
+  assert.equal(c.calls[0].options.body,'[{"values":[[1]],"format":{"fillColors":[[""]]}}]');
+  await assert.rejects(c.api.callAction('../bob',[]),/Invalid action/);
+  await assert.rejects(c.api.call('https://api.example.com/user/alice/ExcelActions/GROUP',[]),/outside/);
 });
 
 test('single user uses header token and checks the correct identity endpoint', async () => {

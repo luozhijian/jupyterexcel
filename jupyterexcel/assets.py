@@ -61,6 +61,9 @@ class AssetStore:
         ids = [f.function_id for f in found if f.kind == 'jupyter']
         if len(set(ids)) != len(ids) or any(not x for x in ids):
             raise ValueError('Worksheet function IDs must be nonempty and unique.')
+        actions = [f.action['id'] for f in found if f.action]
+        if len(set(actions)) != len(actions) or set(actions) & set(ids):
+            raise ValueError('Function IDs must be unique across worksheet functions and actions.')
         return found
 
     def _asset_base_url(self):
@@ -82,6 +85,9 @@ class AssetStore:
                 target = batch / source.relative_to(self.templates)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target)
+        (batch / 'actions.json').write_text(json.dumps({'version': 1, 'actions': [
+            dict(f.action, notebook=f.notebook) for f in functions if f.action
+        ]}), encoding='utf-8')
         base = public_url(self.app)
         script = functions_javascript(functions, base, template_dir=self.templates, hub_user=self.username)
         # Bundle the runtime template and generated registrations for Excel.
