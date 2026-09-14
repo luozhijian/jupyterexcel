@@ -8,7 +8,7 @@
   <Description DefaultValue="Write your own Excel functions in Jupyter."/>
   <IconUrl DefaultValue="{{ASSET_BASE_URL}}/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="{{ASSET_BASE_URL}}/assets/icon-64.png"/>
-  <SupportUrl DefaultValue="https://www.jupyterexcel.com/help"/>
+  <SupportUrl DefaultValue="https://github.com/luozhijian/jupyterexcel/issues"/>
   <AppDomains>
     <AppDomain>https://www.jupyterexcel.com</AppDomain>
   </AppDomains>

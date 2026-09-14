@@ -122,13 +122,13 @@ def get_ribbon_functions () :
 if __name__ == "__main__":
 
 
-    @ribbon_function('get_not_so_random_number_with_max', 'Display Result', max_value='Input Integer')
-    def get_not_so_random_number_with_max(max_value):
+    @ribbon_function('xxxxxx_get_not_so_random_number_with_max', 'Display Result', max_value='Input Integer')
+    def xxxxxx_get_not_so_random_number_with_max(max_value):
         import random
         return random.random() * max_value
 
-    @ribbon_function('sum', 'Display Result', a='C3', b='D3', c='e3')
-    def sum(a, b=0, c=0):
+    @ribbon_function('xxxxxx_sum', 'Display Result', a='C3', b='D3', c='e3')
+    def xxxxxx_sum(a, b=0, c=0):
         return float(a) + float(b) +float(c)
 
 
