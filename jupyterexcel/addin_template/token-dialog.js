@@ -20,6 +20,7 @@ Office.onReady(() => {
   };
   const help = document.getElementById('token-help');
   help.href = config.hubUser ? config.hubApiUrl.replace(/api\/user$/, 'token') : config.apiBase;
+  document.getElementById('new-token-help').href = help.href;
   Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, args => {
     if (args.origin && args.origin !== window.location.origin) return;
     let message;
