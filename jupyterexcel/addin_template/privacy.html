@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JupyterExcelAddin Privacy Policy</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#20352c;background:#f4f7f5}
+body{margin:0;padding:40px 20px}main{max-width:780px;margin:auto;background:white;padding:clamp(24px,5vw,56px);border-top:6px solid #217346;border-radius:8px}
+h1{font-size:2rem;line-height:1.2}h2{font-size:1.2rem;margin-top:30px}p,li{line-height:1.7}a{color:#17643c;overflow-wrap:anywhere}.date{color:#58675f}footer{margin-top:36px;border-top:1px solid #dce5df;padding-top:16px}
+</style>
+</head>
+<body><main>
+<header><h1>JupyterExcelAddin Privacy Policy</h1><p class="date">Last updated: September 14, 2026</p></header>
+<p>JupyterExcelAddin connects Microsoft Excel to a configured Jupyter server so users can run Python notebook functions from Excel and receive their results. This policy describes information handled by the JupyterExcelAddin application and its JupyterExcel extension, rather than just the website hosting its files.</p>
+<h2>Information the application processes</h2>
+<ul>
+<li><strong>Function inputs and results.</strong> Values you supply to a function or action are sent to the configured Jupyter server for execution. Results are returned to Excel. These values may contain personal information if you include it.</li>
+<li><strong>Connection and authentication information.</strong> The application uses your configured server address and access token to authenticate requests. A JupyterHub deployment may also use your username to identify your server and resources. The token is saved in Office runtime storage so the add-in can reuse it.</li>
+<li><strong>Notebook information.</strong> The server extension reads notebooks to discover exported functions and generate add-in resources, including function names, descriptions and parameter metadata. Notebook code may execute in the managed kernel when functions are initialized or called.</li>
+<li><strong>Diagnostics and technical information.</strong> Diagnostic records can include function names, timestamps, server addresses, request status, durations and error messages. Runtime console logging can include function arguments. Office, web servers and Jupyter may also record connection details such as IP addresses and request paths.</li>
+</ul>
+<h2>How information is used and where it goes</h2>
+<p>The application uses this information to authenticate connections, execute requested functions, return results, generate add-in resources and diagnose failures. Function requests go to the configured Jupyter server. Python code supplied by you or your server administrator may store information or send it to other services; review that code before processing personal information.</p>
+<p>The server hosting the add-in receives requests for its HTML, JavaScript and other resources. Generated function descriptions and metadata are available to anyone who can access those hosted resources. Avoid putting personal or confidential information in published function descriptions.</p>
+<p>Microsoft provides the Excel and Office runtime environment and handles information under its own privacy terms. Your Jupyter server and hosting providers may be operated by you, your organization or another provider. Their access, logging and retention practices also apply. Installing this software does not by itself identify who operates your configured server.</p>
+<h2>Storage and retention</h2>
+<p>Saved credentials and add-in settings persist in Office runtime storage until removed, replaced or cleared by the host. The add-in's stored diagnostic log is bounded to the most recent 200 entries and a size limit; older entries are removed as these limits are reached. This limit does not apply to separate Office console logs or server logs.</p>
+<p>Notebook files, generated resources, kernel state, exported diagnostics and server logs can remain on the systems where they are created. Their retention depends on the relevant server or device administrator. The application does not impose a universal deletion period on these systems.</p>
+<h2>Your choices and privacy requests</h2>
+<p>You choose the server and the values submitted to its functions. You can disable optional Debug Log recording and clear its stored entries in the add-in's Debug Log pane. Separate runtime console or server logging may continue. Revoke an access token on the Jupyter server when it is no longer needed, and clear the add-in's stored data through the Office host where supported.</p>
+<p>For access, correction or deletion of personal information held on a Jupyter server, contact that server's administrator. For personal information in support correspondence or questions about this application, contact the project maintainer below. Applicable privacy rights depend on your location and the organization responsible for processing your information.</p>
+<h2>Security</h2>
+<p>Access tokens authorize access to your Jupyter server. Keep them private and use trusted HTTPS endpoints. Logs and function arguments may contain personal information; review diagnostic exports before sharing them. No storage or transmission method can guarantee complete security.</p>
+<h2>Contact and policy updates</h2>
+<p>Project maintainer: Jim Luo<br>Privacy contact: <a href="mailto:support@jupyterexcel.com">support@jupyterexcel.com</a></p>
+<p>Please do not include access tokens or sensitive worksheet data in support messages. Updates to this policy will be published on this page with a revised date.</p>
+<footer>JupyterExcelAddin · JupyterExcel</footer>
+</main></body></html>
