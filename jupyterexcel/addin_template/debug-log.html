@@ -1,0 +1,29 @@
+      <section id="debug-log-section" class="debug-log-section">
+        <header class="app-header">
+            <button id="debug-log-collapse" class="collapse-button" type="button" aria-expanded="false" aria-controls="debug-log-content auth-status-banner">
+                <span id="collapse-icon" class="collapse-icon" aria-hidden="true">â–¸</span>
+                <span><strong>Debug Log</strong><small>Jupyter custom-function diagnostics</small></span>
+            </button>
+            <span id="compact-log-count" class="compact-log-count">0 logs</span>
+            <label class="toggle"><input id="logging-enabled" type="checkbox" /> Logging</label>
+        </header>
+        <div id="auth-status-banner" class="auth-status-banner" role="status" aria-live="polite">
+          <strong id="auth-status-title">Checking access tokenâ€¦</strong>
+          <p id="auth-status-message">Checking whether a token is available for Jupyter requests.</p>
+        </div>
+        <div id="debug-log-content" class="debug-log-content">
+          <section class="controls" aria-label="Log controls">
+            <label>Mode<select id="logging-mode"><option value="NORMAL">Normal</option><option value="VERBOSE">Verbose</option></select></label>
+            <label>Level<select id="level-filter"><option value="ALL">All</option><option value="VERBOSE">Verbose</option><option value="INFO">Info</option><option value="WARN">Warning</option><option value="ERROR">Error</option></select></label>
+            <label>Function<input id="function-filter" type="search" placeholder="SUM" /></label>
+            <label class="search">Search<input id="search-filter" type="search" placeholder="Message or value" /></label>
+            <label class="auto-scroll"><input id="auto-scroll" type="checkbox" checked /> Auto-scroll</label>
+          </section>
+          <section class="toolbar">
+            <button id="pause" type="button">Pause</button><button id="clear" type="button">Clear</button>
+            <button id="copy" type="button">Copy visible</button><button id="export" type="button">Export JSON</button>
+          </section>
+          <div class="summary"><span id="log-count">0 shown / 0 stored</span><span id="status" role="status"></span></div>
+          <section id="log-list" class="log-list" aria-live="polite"></section>
+        </div>
+      </section>

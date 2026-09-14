@@ -24,3 +24,20 @@ test('close message completes command',async()=>{
  assert.equal(s.closed(),1);assert.equal(s.completed(),1);
 });
 test('opening failure completes command',()=>assert.equal(setup(true).completed(),1));
+
+test('ribbon commands switch separate views and complete', async () => {
+ const commands = {};
+ const elements = Object.fromEntries(['actions-view','debug-view','action-details','action-select','logging-enabled'].map(id => [id,{hidden:false,open:true,focus(){}}]));
+ let shown=0, completed=0;
+ const Office={onReady:fn=>fn(),addin:{showAsTaskpane:async()=>{shown++;}},actions:{associate:(name,fn)=>commands[name]=fn}};
+ vm.runInNewContext(source,{Office,document:{getElementById:id=>elements[id]},console});
+ await commands.openNotebookActions({completed:()=>completed++});
+ assert.equal(elements['actions-view'].hidden,false);
+ assert.equal(elements['debug-view'].hidden,true);
+ await commands.openDebugLog({completed:()=>completed++});
+ assert.equal(elements['actions-view'].hidden,true);
+ assert.equal(elements['debug-view'].hidden,false);
+ assert.equal(elements['action-details'].open,false);
+ assert.equal(shown,2);
+ assert.equal(completed,2);
+});

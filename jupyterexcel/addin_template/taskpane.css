@@ -44,3 +44,5 @@ button, input, select { font: inherit; }
 /* Authorization problems stay visible even when the debug log is collapsed. */
 .debug-log-section.collapsed .auth-status-banner[data-state="present"] { display: none; }
 .auth-status-banner[data-state="failed"] { border-color: #b42318; background: #fff0ed; color: #8a1c13; }
+
+#debug-view:not([hidden]) { display: flex; flex: 1; flex-direction: column; min-height: 0; }

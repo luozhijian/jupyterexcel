@@ -19,54 +19,8 @@
 <body class="ms-font-m ms-Fabric">
     <section id="sideload-msg" class="loading"><p>Loading Jupyter Excel debug logâ€¦</p></section>
     <main id="app-body" style="display: none;">
-      <section id="notebook-actions" aria-label="Notebook Actions">
-        <details id="action-details" open>
-        <summary class="action-summary"><h2>Notebook Actions</h2></summary>
-        <label>Action <select id="action-select"></select></label>
-        <button id="action-refresh" type="button">Refresh actions</button>
-        <p id="action-description"></p>
-        <p>Cells are read when you run. Manual fills only; hidden and filtered cells are included. Results are snapshots: run again after editing cells or colors.</p>
-        <fieldset id="action-inputs"></fieldset>
-        <button id="action-run" type="button" disabled>Run</button>
-        <p id="action-status" role="status" aria-live="polite"></p>
-        <label id="action-target-label" hidden>Starting Cell <input id="action-target" readonly placeholder="Click here, then select one cell in Excel" /></label>
-        <button id="action-write" type="button" hidden>Write to cells</button>
-        <div id="action-result"></div>
-        <button id="action-popup" type="button" hidden>Show dialog</button>
-        <button id="action-updates" type="button" hidden>Apply input updates</button>
-        <dialog id="action-dialog"><div id="action-dialog-content"></div><button id="action-dialog-close" type="button">Close</button></dialog>
-        </details>
-      </section>
-      <section id="debug-log-section" class="debug-log-section">
-        <header class="app-header">
-            <button id="debug-log-collapse" class="collapse-button" type="button" aria-expanded="false" aria-controls="debug-log-content auth-status-banner">
-                <span id="collapse-icon" class="collapse-icon" aria-hidden="true">â–¸</span>
-                <span><strong>Debug Log</strong><small>Jupyter custom-function diagnostics</small></span>
-            </button>
-            <span id="compact-log-count" class="compact-log-count">0 logs</span>
-            <label class="toggle"><input id="logging-enabled" type="checkbox" /> Logging</label>
-        </header>
-        <div id="auth-status-banner" class="auth-status-banner" role="status" aria-live="polite">
-          <strong id="auth-status-title">Checking access tokenâ€¦</strong>
-          <p id="auth-status-message">Checking whether a token is available for Jupyter requests.</p>
-        </div>
-        <div id="debug-log-content" class="debug-log-content">
-          <section class="controls" aria-label="Log controls">
-            <label>Mode<select id="logging-mode"><option value="NORMAL">Normal</option><option value="VERBOSE">Verbose</option></select></label>
-            <label>Level<select id="level-filter"><option value="ALL">All</option><option value="VERBOSE">Verbose</option><option value="INFO">Info</option><option value="WARN">Warning</option><option value="ERROR">Error</option></select></label>
-            <label>Function<input id="function-filter" type="search" placeholder="SUM" /></label>
-            <label class="search">Search<input id="search-filter" type="search" placeholder="Message or value" /></label>
-            <label class="auto-scroll"><input id="auto-scroll" type="checkbox" checked /> Auto-scroll</label>
-          </section>
-          <section class="toolbar">
-            <button id="pause" type="button">Pause</button><button id="clear" type="button">Clear</button>
-            <button id="copy" type="button">Copy visible</button><button id="export" type="button">Export JSON</button>
-          </section>
-          <div class="summary"><span id="log-count">0 shown / 0 stored</span><span id="status" role="status"></span></div>
-          <section id="log-list" class="log-list" aria-live="polite"></section>
-        </div>
-      </section>
-    <section><h2>Worksheet functions</h2><ul>{{WORKSHEET_ROWS}}</ul><h2>Ribbon functions</h2><ul>{{RIBBON_ROWS}}</ul></section>
+      <div id="actions-view" hidden>{{ACTIONS_VIEW}}</div>
+      <div id="debug-view">{{DEBUG_VIEW}}</div>
 </main>
 </body>
 </html>

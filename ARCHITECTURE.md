@@ -1,5 +1,9 @@
 # JupyterExcel Architecture
 
+## Separate task-pane views
+
+The Debug Log and Actions ribbon commands select separate views. Their markup lives in addin_template/debug-log.html and addin_template/notebook-actions.html. Asset generation embeds both into taskpane.html, preserving one shared Office runtime. Hidden views retain their state when switching; opening Debug Log closes action range selection.
+
 ## Notebook Actions
 
 The reusable shared task pane discovers literal ribbon action metadata and calls authenticated POST endpoints under /Excel/. Python results can be displayed or explicitly written to selected cells. See [NOTEBOOK_ACTIONS.md](NOTEBOOK_ACTIONS.md) for the contract, SumGroupByColor demo, and current limits.

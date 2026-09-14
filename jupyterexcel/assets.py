@@ -99,6 +99,13 @@ class AssetStore:
         ribbon = ''.join('<li>%s (%s)</li>' % (escape(f.excel_name), escape(f.notebook)) for f in functions if f.kind == 'ribbon')
         taskpane = batch / 'taskpane.html'
         content = taskpane.read_text(encoding='utf-8')
+        # Assemble separate views in the single Office shared-runtime host.
+        for marker, name in (('{{ACTIONS_VIEW}}', 'notebook-actions.html'),
+                             ('{{DEBUG_VIEW}}', 'debug-log.html')):
+            view = (batch / name).read_text(encoding='utf-8')
+            view = view.replace('{{WORKSHEET_ROWS}}', rows).replace('{{RIBBON_ROWS}}', ribbon)
+            (batch / name).write_text(view, encoding='utf-8')
+            content = content.replace(marker, view)
         content = content.replace('{{WORKSHEET_ROWS}}', rows).replace('{{RIBBON_ROWS}}', ribbon)
         taskpane.write_text(content, encoding='utf-8')
         manifest = (batch / 'manifest.xml').read_text(encoding='utf-8')

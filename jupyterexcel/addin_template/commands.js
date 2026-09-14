@@ -59,6 +59,8 @@
   async function openNotebookActions(event) {
     try {
       await Office.addin.showAsTaskpane();
+      document.getElementById('actions-view').hidden = false;
+      document.getElementById('debug-view').hidden = true;
       const details = document.getElementById('action-details');
       if (details) details.open = true;
       document.getElementById('action-select')?.focus();
@@ -68,6 +70,21 @@
       event.completed();
     }
   }
+  async function openDebugLog(event) {
+    try {
+      await Office.addin.showAsTaskpane();
+      document.getElementById('actions-view').hidden = true;
+      document.getElementById('debug-view').hidden = false;
+      const details = document.getElementById('action-details');
+      if (details) details.open = false;
+      document.getElementById('logging-enabled')?.focus();
+    } catch (error) {
+      console.error('JupyterExcel could not open Debug Log', error.message);
+    } finally {
+      event.completed();
+    }
+  }
+  Office.actions.associate('openDebugLog', openDebugLog);
   Office.actions.associate('openNotebookActions', openNotebookActions);
   Office.actions.associate('openAccessTokenDialog', openAccessTokenDialog);
 })();

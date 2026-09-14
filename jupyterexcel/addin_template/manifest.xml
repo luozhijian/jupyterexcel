@@ -73,12 +73,27 @@
                     <Description resid="ShowDebugLogButton.Tooltip"/>
                   </Supertip>
                   <Icon>
-                    <bt:Image size="16" resid="Icon.16x16"/>
-                    <bt:Image size="32" resid="Icon.32x32"/>
-                    <bt:Image size="80" resid="Icon.80x80"/>
+                    <bt:Image size="16" resid="debug-log.16x16"/>
+                    <bt:Image size="32" resid="debug-log.32x32"/>
+                    <bt:Image size="80" resid="debug-log.80x80"/>
                   </Icon>
-                  <Action xsi:type="ShowTaskpane">
-                    <SourceLocation resid="Taskpane.Url"/>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>openDebugLog</FunctionName>
+                  </Action>
+                </Control>
+                <Control xsi:type="Button" id="NotebookActionsButton">
+                  <Label resid="NotebookActionsButton.Label"/>
+                  <Supertip>
+                    <Title resid="NotebookActionsButton.Label"/>
+                    <Description resid="NotebookActionsButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="actions.16x16"/>
+                    <bt:Image size="32" resid="actions.32x32"/>
+                    <bt:Image size="80" resid="actions.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>openNotebookActions</FunctionName>
                   </Action>
                 </Control>
                 <Control xsi:type="Button" id="InputAccessTokenButton">
@@ -88,9 +103,9 @@
                     <Description resid="InputAccessTokenButton.Tooltip"/>
                   </Supertip>
                   <Icon>
-                    <bt:Image size="16" resid="Icon.16x16"/>
-                    <bt:Image size="32" resid="Icon.32x32"/>
-                    <bt:Image size="80" resid="Icon.80x80"/>
+                    <bt:Image size="16" resid="settings.16x16"/>
+                    <bt:Image size="32" resid="settings.32x32"/>
+                    <bt:Image size="80" resid="settings.80x80"/>
                   </Icon>
                   <Action xsi:type="ExecuteFunction">
                     <FunctionName>openAccessTokenDialog</FunctionName>
@@ -107,6 +122,15 @@
         <bt:Image id="Icon.16x16" DefaultValue="{{ASSET_BASE_URL}}/assets/icon-16.png"/>
         <bt:Image id="Icon.32x32" DefaultValue="{{ASSET_BASE_URL}}/assets/icon-32.png"/>
         <bt:Image id="Icon.80x80" DefaultValue="{{ASSET_BASE_URL}}/assets/icon-80.png"/>
+        <bt:Image id="debug-log.16x16" DefaultValue="{{ASSET_BASE_URL}}/assets/debug-log-16.png"/>
+        <bt:Image id="debug-log.32x32" DefaultValue="{{ASSET_BASE_URL}}/assets/debug-log-32.png"/>
+        <bt:Image id="debug-log.80x80" DefaultValue="{{ASSET_BASE_URL}}/assets/debug-log-80.png"/>
+        <bt:Image id="settings.16x16" DefaultValue="{{ASSET_BASE_URL}}/assets/settings-16.png"/>
+        <bt:Image id="settings.32x32" DefaultValue="{{ASSET_BASE_URL}}/assets/settings-32.png"/>
+        <bt:Image id="settings.80x80" DefaultValue="{{ASSET_BASE_URL}}/assets/settings-80.png"/>
+        <bt:Image id="actions.16x16" DefaultValue="{{ASSET_BASE_URL}}/assets/actions-16.png"/>
+        <bt:Image id="actions.32x32" DefaultValue="{{ASSET_BASE_URL}}/assets/actions-32.png"/>
+        <bt:Image id="actions.80x80" DefaultValue="{{ASSET_BASE_URL}}/assets/actions-80.png"/>
       </bt:Images>
       <bt:Urls>
         <bt:Url id="Functions.Script.Url" DefaultValue="{{ASSET_BASE_URL}}/functions.js"/>
@@ -120,14 +144,16 @@
       <bt:ShortStrings>
         <bt:String id="Functions.Namespace" DefaultValue="Jupyter"/>
         <bt:String id="GetStarted.Title" DefaultValue="Get started with your JupyterExcel add-in!"/>
-        <bt:String id="CommandsGroup.Label" DefaultValue="Commands Group"/>
-        <bt:String id="ShowDebugLogButton.Label" DefaultValue="Show Debug Log"/>
-        <bt:String id="InputAccessTokenButton.Label" DefaultValue="Input Access Token"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="Jupyter"/>
+        <bt:String id="ShowDebugLogButton.Label" DefaultValue="Log"/>
+        <bt:String id="InputAccessTokenButton.Label" DefaultValue="Token"/>
+        <bt:String id="NotebookActionsButton.Label" DefaultValue="Actions"/>
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="Your Jupyter Excel add-in loaded successfully. Go to the HOME tab and click the 'Show Task Pane' button to get started."/>
         <bt:String id="ShowDebugLogButton.Tooltip" DefaultValue="Open the task pane and display the Debug Log."/>
         <bt:String id="InputAccessTokenButton.Tooltip" DefaultValue="Verify and save a Jupyter access token."/>
+        <bt:String id="NotebookActionsButton.Tooltip" DefaultValue="Open Notebook Actions to run Python actions on selected cells."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
