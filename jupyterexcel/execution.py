@@ -200,7 +200,35 @@ class SharedKernelExecutor:
         await visit('')
         return notebooks
 
-    async def _initialize(self, kernel_id):
+    async def reload_notebook(self, path):
+        """Serialize an explicit reload with Excel requests; never interrupt busy work."""
+        try:
+            await asyncio.wait_for(self.lock.acquire(), self.timeout)
+        except asyncio.TimeoutError:
+            raise ExecutionError(503, 'kernel_busy', 'Excel requests are still running; retry the reload.') from None
+        try:
+            kernel_id = await self._ensure_kernel()
+            deadline = asyncio.get_running_loop().time() + self.timeout
+            while True:
+                models = await resolved(self.manager.list_kernels())
+                model = next((m for m in models if m['id'] == kernel_id), None)
+                if model is None:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise ExecutionError(503, 'kernel_busy', 'The kernel is unavailable; retry the reload.')
+                    kernel_id = await self._ensure_kernel()
+                    await asyncio.sleep(0.1)
+                    continue
+                if model.get('execution_state') != 'busy':
+                    break
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise ExecutionError(503, 'kernel_busy', 'The kernel is still busy; retry the reload.')
+                await asyncio.sleep(0.1)
+            await self._initialize(kernel_id, reload_path=path)
+            return kernel_id
+        finally:
+            self.lock.release()
+
+    async def _initialize(self, kernel_id, reload_path=None):
         from jupyter_client import AsyncKernelClient
 
         kernel = self.manager.get_kernel(kernel_id)
@@ -227,6 +255,19 @@ class SharedKernelExecutor:
         try:
             await client.wait_for_ready(timeout=self.timeout)
             notebooks = await self._notebooks()
+            selected = []
+            if reload_path is not None:
+                selected = [entry for entry in notebooks if entry[0] == reload_path]
+                if not selected:
+                    model = await resolved(self.contents.get(reload_path, content=True))
+                    if model['type'] != 'notebook':
+                        raise ExecutionError(400, 'notebook_required', 'Select a saved notebook.')
+                    cells = [(i, ''.join(c.get('source', '')) if isinstance(c.get('source', ''), list)
+                              else c.get('source', ''))
+                             for i, c in enumerate(model['content'].get('cells', []), 1)
+                             if c.get('cell_type') == 'code']
+                    selected = [(reload_path, cells)]
+                    notebooks.extend(selected)
             payload = json.dumps(notebooks)
             code = """if not globals().get('_jupyterexcel_initialized', False):
     if globals().get('_jupyterexcel_initializing', False):
@@ -241,6 +282,19 @@ class SharedKernelExecutor:
     _jupyterexcel_initialized = True
     _jupyterexcel_initializing = False
 """ % payload
+            if reload_path is not None:
+                # A cold kernel initializes all exported notebooks once, including
+                # the selected notebook. A warm kernel reruns only the selected one.
+                code = "_jupyterexcel_was_initialized = globals().get('_jupyterexcel_initialized', False)\n" + code
+                code += """
+if _jupyterexcel_was_initialized:
+    import json as _jupyterexcel_json
+    for _jupyterexcel_path, _jupyterexcel_cells in _jupyterexcel_json.loads(%r):
+        for _jupyterexcel_index, _jupyterexcel_source in _jupyterexcel_cells:
+            _jupyterexcel_result = get_ipython().run_cell(_jupyterexcel_source, store_history=False)
+            if not _jupyterexcel_result.success:
+                raise RuntimeError('Notebook reload failed: %%s, cell %%s; earlier cells may have changed kernel state' %% (_jupyterexcel_path, _jupyterexcel_index))
+""" % json.dumps(selected)
             await asyncio.wait_for(run(code), self.timeout)
         except asyncio.TimeoutError:
             raise ExecutionError(

@@ -14,6 +14,7 @@ except ImportError:
 
 from .assets import AssetStore
 from .execution import ExecutionError, SharedKernelExecutor
+from .reload_handler import ReloadNotebookHandler
 
 
 class ExcelModeHandler(APIHandler):
@@ -119,6 +120,8 @@ def load_jupyter_server_extension(app):
     app.log.info(f"JupyterExcel: registering {match_path} for Excel function calls (hub_user={hub_user})")
     app.web_app.add_handlers('.*$', [
         (match_path, ExcelModeHandler, {'executor': executor, 'hub_user': hub_user}),
+        (url_path_join(base, 'jupyterexcel/api/reload'), ReloadNotebookHandler,
+         {'executor': executor, 'store': store, 'hub_user': hub_user}),
     ])
 
     cm = app.contents_manager

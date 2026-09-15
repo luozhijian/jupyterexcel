@@ -20,6 +20,8 @@ dependencies = [
 ]
 
 classifiers = [
+    "Framework :: Jupyter :: JupyterLab :: 4",
+    "Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt",
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
@@ -45,7 +47,12 @@ exclude = [
 jupyterexcel = [
     "addin_template/*",
     "addin_template/assets/*",
+    "labextension/package.json",
+    "labextension/install.json",
+    "labextension/static/*",
 ]
 
 [tool.setuptools.data-files]
 "etc/jupyter/jupyter_server_config.d" = ["jupyterexcel.json"]
+"share/jupyter/labextensions/@jupyterexcel/labextension" = ["jupyterexcel/labextension/package.json", "jupyterexcel/labextension/install.json"]
+"share/jupyter/labextensions/@jupyterexcel/labextension/static" = ["jupyterexcel/labextension/static/*"]

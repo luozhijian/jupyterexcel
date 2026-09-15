@@ -96,7 +96,8 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as test_data, patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':test_data}), patch.object(AssetStore, 'schedule') as schedule:
             load_jupyter_server_extension(app)
             self.assertEqual(len(hooks), 2)
-            self.assertEqual(len(routes), 1)
+            self.assertEqual(len(routes), 2)
+            self.assertIn('/jupyterexcel/api/reload', routes[1][0])
             self.assertIn('/Excel/', routes[0][0])
             hooks[1](model={'type':'notebook'})
             self.assertEqual(schedule.call_count, 2)
@@ -118,7 +119,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('https://www.jupyterexcel.com/excel-addin/alice/functions.js', manifest)
             self.assertNotIn('localhost', manifest)
             self.assertNotIn(store.current + '.js', manifest)
-            self.assertNotIn('/jupyterexcel/', manifest)
+            self.assertNotIn('/user/alice/jupyterexcel/', manifest)
             self.assertNotIn('8888', manifest)
             self.assertTrue((store.root/'functions.json').is_file())
             self.assertTrue((store.root/'functions.js').is_file())

@@ -1,0 +1,34 @@
+{
+  "name": "@jupyterexcel/labextension",
+  "version": "0.1.0",
+  "description": "Save a notebook and reload it into the managed JupyterExcel kernel",
+  "license": "BUSL-1.1",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib/**/*",
+    "src/**/*"
+  ],
+  "scripts": {
+    "build": "tsc && jupyter labextension build . && node finalize.mjs",
+    "test": "tsc && node --test test/*.mjs"
+  },
+  "dependencies": {
+    "@jupyterlab/application": "~4.4.0",
+    "@jupyterlab/apputils": "^4.4.0",
+    "@jupyterlab/coreutils": "~6.4.0",
+    "@jupyterlab/notebook": "~4.4.0",
+    "@jupyterlab/services": "~7.4.0",
+    "@lumino/disposable": "^2.1.0"
+  },
+  "devDependencies": {
+    "@jupyterlab/builder": "~4.4.0",
+    "typescript": "~5.7.3",
+    "webpack": "5.99.9"
+  },
+  "jupyterlab": {
+    "extension": true,
+    "outputDir": "../jupyterexcel/labextension"
+  }
+}

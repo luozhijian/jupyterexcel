@@ -1,0 +1,6 @@
+include LICENSE LICENSE-MIT THIRD_PARTY_NOTICES.md
+recursive-include jupyterexcel/labextension *
+include frontend/package.json frontend/package-lock.json frontend/tsconfig.json
+include frontend/finalize.mjs
+recursive-include frontend/src *.ts
+recursive-include frontend/test *.mjs

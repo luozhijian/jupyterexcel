@@ -9,6 +9,10 @@ from .utils import jupyter_function, ribbon_function
 __all__ = ["jupyter_function", "ribbon_function"]
 
 
+def _jupyter_labextension_paths():
+    return [{"src": "labextension", "dest": "@jupyterexcel/labextension"}]
+
+
 # Jupyter Server validates and loads the package named by the extension point.
 # Keep that public entry point at the package root while importing the server
 # implementation lazily, so importing decorators does not require Jupyter's

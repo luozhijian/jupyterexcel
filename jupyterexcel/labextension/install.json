@@ -1,0 +1,5 @@
+{
+  "packageManager": "python",
+  "packageName": "jupyterexcel",
+  "uninstallInstructions": "Use pip uninstall jupyterexcel to remove this extension."
+}
