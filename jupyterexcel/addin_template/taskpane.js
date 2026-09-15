@@ -10,6 +10,32 @@ let entriesFingerprint = "";
 
 const DEBUG_LOG_EXPANDED_KEY = "jupyter.ui.v1.debugLog.expanded";
 
+const AUTH_BANNER_DISMISSED_KEY = "jupyter.ui.v1.authBanner.dismissed:" +
+  encodeURIComponent(globalThis.JupyterExcelConfig?.apiBase || '') + ':' +
+  encodeURIComponent(globalThis.JupyterExcelConfig?.hubUser || '');
+// Read once per runtime; status polling uses only this cached preference.
+let authBannerDismissed = false;
+try { authBannerDismissed = localStorage.getItem(AUTH_BANNER_DISMISSED_KEY) === 'true'; } catch (_) {}
+
+function updateAuthBannerVisibility(state) {
+  const present = state === 'present';
+  if (!present && authBannerDismissed) {
+    authBannerDismissed = false;
+    try { localStorage.removeItem(AUTH_BANNER_DISMISSED_KEY); } catch (_) {}
+  }
+  document.getElementById('auth-status-banner').hidden = present && authBannerDismissed;
+  document.getElementById('auth-status-dismiss').hidden = !present;
+}
+
+function dismissAuthBanner() {
+  const banner = document.getElementById('auth-status-banner');
+  if (banner.dataset.state !== 'present') return;
+  authBannerDismissed = true;
+  try { localStorage.setItem(AUTH_BANNER_DISMISSED_KEY, 'true'); } catch (_) {}
+  updateAuthBannerVisibility('present');
+}
+
+
 Office.onReady(async () => {
   document.getElementById("sideload-msg").style.display = "none";
   document.getElementById("app-body").style.display = "flex";
@@ -37,16 +63,19 @@ async function refreshAuthStatus() {
       ? 'Token available' : status.state === 'missing' ? 'NO JUPYTER ACCESS TOKEN'
       : status.state === 'failed' ? 'JUPYTER AUTHORIZATION FAILED' : 'CANNOT READ ACCESS TOKEN';
     document.getElementById('auth-status-message').textContent = status.message;
+    updateAuthBannerVisibility(status.state);
   } catch (_) {
     document.getElementById('auth-status-banner').dataset.state = 'unavailable';
     document.getElementById('auth-status-title').textContent = 'CANNOT CHECK ACCESS TOKEN';
     document.getElementById('auth-status-message').textContent = 'Open Input Access Token to verify your authorization.';
+    updateAuthBannerVisibility('unavailable');
   } finally {
     authStatusPending = false;
   }
 }
 
 function bindControls() {
+  document.getElementById('auth-status-dismiss').onclick = dismissAuthBanner;
   document.getElementById("debug-log-collapse").onclick = toggleDebugSection;
   document.getElementById("logging-enabled").onchange = saveSettings;
   document.getElementById("logging-mode").onchange = saveSettings;
@@ -155,7 +184,6 @@ function setDebugSectionExpanded(expanded) {
   const button = document.getElementById("debug-log-collapse");
   section.classList.toggle("collapsed", !expanded);
   button.setAttribute("aria-expanded", String(expanded));
-  document.getElementById("collapse-icon").textContent = expanded ? "â–¾" : "â–¸";
   writeExpandedPreference(expanded);
 }
 

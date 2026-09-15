@@ -9,7 +9,17 @@ button, input, select { font: inherit; }
 .collapse-button strong, .collapse-button small { display: block; }
 .collapse-button strong { font-size: 16px; }
 .collapse-button small { margin-top: 2px; color: #c9ccda; font-size: 11px; }
-.collapse-icon { width: 12px; font-size: 16px; }
+.collapse-icon {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid currentColor;
+  margin: 0 3px;
+}
+.collapse-button[aria-expanded="true"] .collapse-icon { transform: rotate(90deg); }
 .compact-log-count { color: #c9ccda; font-size: 11px; white-space: nowrap; }
 .toggle { display: flex; gap: 6px; align-items: center; font-weight: 600; }
 .debug-log-content { display: flex; flex: 1; min-height: 0; flex-direction: column; }
@@ -46,3 +56,6 @@ button, input, select { font: inherit; }
 .auth-status-banner[data-state="failed"] { border-color: #b42318; background: #fff0ed; color: #8a1c13; }
 
 #debug-view:not([hidden]) { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+
+.auth-status-banner[hidden] { display: none; }
+.auth-status-dismiss { float: right; margin-left: 8px; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 20px; line-height: 1; padding: 2px 6px; }

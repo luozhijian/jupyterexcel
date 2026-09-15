@@ -18,6 +18,37 @@ Office.onReady(() => {
     document.getElementById('token-form').hidden = false;
     document.getElementById('success').hidden = true;
   };
+  let reloadPending = false;
+  function showReloadConfirmation(visible) {
+    document.getElementById('reload-confirmation').hidden = !visible;
+    document.getElementById('replace-token').disabled = visible;
+    document.getElementById('reload-addin').disabled = visible;
+    document.getElementById('ok').disabled = visible;
+    document.getElementById(visible ? 'reload-cancel' : 'reload-addin').focus();
+  }
+  document.getElementById('reload-addin').onclick = () => showReloadConfirmation(true);
+  document.getElementById('reload-cancel').onclick = () => {
+    if (!reloadPending) showReloadConfirmation(false);
+  };
+  document.getElementById('reload-confirm').onclick = () => {
+    if (reloadPending) return;
+    reloadPending = true;
+    document.getElementById('reload-confirm').disabled = true;
+    document.getElementById('reload-cancel').disabled = true;
+    status('Reloading the add-in…', 'working');
+    try {
+      Office.context.ui.messageParent(JSON.stringify({type:'reload-addin'}), {targetOrigin:window.location.origin});
+    } catch (_) {
+      resetReload();
+      status('Could not request an add-in reload. Please try again.', 'error');
+    }
+  };
+  function resetReload() {
+    reloadPending = false;
+    document.getElementById('reload-confirm').disabled = false;
+    document.getElementById('reload-cancel').disabled = false;
+    showReloadConfirmation(false);
+  }
   const help = document.getElementById('token-help');
   help.href = config.hubUser ? config.hubApiUrl.replace(/api\/user$/, 'token') : config.apiBase;
   document.getElementById('new-token-help').href = help.href;
@@ -33,6 +64,9 @@ Office.onReady(() => {
       document.getElementById('function-uri').textContent = config.apiBase;
       document.getElementById('ok').disabled = false;
       status('Token verified and saved in shared Office storage.', 'success');
+    } else if (message.type === 'reload-error') {
+      resetReload();
+      status(message.message, 'error');
     } else if (message.type === 'error') status(message.message, 'error');
   }, () => {
     Office.context.ui.messageParent(JSON.stringify({type:'auth-status'}), {targetOrigin:window.location.origin});

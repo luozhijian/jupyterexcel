@@ -115,7 +115,6 @@
     $('action-run').disabled = busy || !validInputs();
     $('action-inputs').disabled = busy;
     $('action-select').disabled = busy;
-    $('action-refresh').disabled = busy;
     const usable = !!result && resultRevision === revision && !busy;
     $('action-write').disabled = !usable || !outputTarget;
     $('action-updates').disabled = !usable;
@@ -181,7 +180,7 @@
         add.onclick = () => { addEntry(group); stale(); updateButtons(); }; container.appendChild(add);
       }
     }
-    status(selected ? 'Choose inputs, then run.' : 'No actions found. Save a notebook with a ribbon_function action, then refresh.');
+    status(selected ? 'Choose inputs, then run.' : 'No actions found. Save a notebook with a ribbon_function action, then use Reload add-in on the Token page.');
     updateButtons();
   }
   async function refresh() {
@@ -391,7 +390,7 @@
   Office.onReady(async () => {
     $('action-details').ontoggle = () => { if (!$('action-details').open) stopSelection(); };
     $('action-select').onchange = selectAction;
-    $('action-refresh').onclick = refresh; $('action-run').onclick = run;
+    $('action-run').onclick = run;
     $('action-write').onclick = () => write(false); $('action-updates').onclick = () => write(true);
     $('action-popup').onclick = showPopup; $('action-dialog-close').onclick = () => $('action-dialog').close();
     $('action-target').onclick = () => activateSelection({input: $('action-target'), single: true, output: true,

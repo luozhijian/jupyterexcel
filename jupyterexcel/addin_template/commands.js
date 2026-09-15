@@ -4,6 +4,7 @@
   Office.onReady(() => {});
   let accessTokenDialog;
   let commandEvent;
+  let reloadPending = false;
   function finishCommand() {
     const event = commandEvent;
     commandEvent = null;
@@ -38,6 +39,37 @@
     if (args.origin && args.origin !== window.location.origin) return;
     let message;
     try { message = JSON.parse(args.message); } catch (_) { return; }
+    if (message.type === 'reload-addin') {
+      if (!accessTokenDialog || reloadPending) return;
+      reloadPending = true;
+      try {
+        // Refresh cached assets before restarting the entire shared runtime.
+        // Do not evaluate scripts in the existing runtime or change its URL.
+        const pageUrl = new URL(window.location.href);
+        const page = await fetch(pageUrl.href, {cache:'reload', credentials:'omit'});
+        if (!page.ok) throw new Error('Could not refresh the add-in page.');
+        const html = new DOMParser().parseFromString(await page.text(), 'text/html');
+        const resources = new Set();
+        for (const element of html.querySelectorAll('script[src], link[rel="stylesheet"][href]')) {
+          const url = new URL(element.getAttribute('src') || element.getAttribute('href'), pageUrl);
+          if (url.origin === pageUrl.origin) resources.add(url.href);
+        }
+        await Promise.all(Array.from(resources, async url => {
+          const response = await fetch(url, {cache:'reload', credentials:'omit'});
+          if (!response.ok) throw new Error('Could not refresh an add-in resource.');
+          await response.arrayBuffer();
+        }));
+        accessTokenDialog?.close();
+        finishCommand();
+        window.location.reload();
+      } catch (_) {
+        reloadPending = false;
+        accessTokenDialog?.messageChild(JSON.stringify({
+          type:'reload-error', message:'Could not reload the add-in. Check the asset server and try again.'
+        }), {targetOrigin:window.location.origin});
+      }
+      return;
+    }
     if (message.type === 'close') {accessTokenDialog?.close(); finishCommand(); return;}
     try {
       if (message.type === 'auth-status') {

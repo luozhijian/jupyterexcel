@@ -20,3 +20,9 @@ dt { margin-top: 10px; font-weight: 700; }
 dt:first-child { margin-top: 0; }
 dd { margin: 3px 0 0; overflow-wrap: anywhere; }
 footer { display: flex; justify-content: flex-end; margin-top: 18px; border-top: 1px solid #ddd; }
+
+.token-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#reload-addin { margin-left: auto; }
+.reload-confirmation { margin-top: 16px; padding: 16px; border: 1px solid #888; background: white; border-radius: 3px; }
+.reload-confirmation h2 { margin: 0; font-size: 18px; }
+.confirmation-actions { display: flex; justify-content: flex-end; gap: 8px; }

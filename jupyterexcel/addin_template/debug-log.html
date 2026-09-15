@@ -1,14 +1,15 @@
       <section id="debug-log-section" class="debug-log-section">
         <header class="app-header">
             <button id="debug-log-collapse" class="collapse-button" type="button" aria-expanded="false" aria-controls="debug-log-content auth-status-banner">
-                <span id="collapse-icon" class="collapse-icon" aria-hidden="true">â–¸</span>
+                <span id="collapse-icon" class="collapse-icon" aria-hidden="true"></span>
                 <span><strong>Debug Log</strong><small>Jupyter custom-function diagnostics</small></span>
             </button>
             <span id="compact-log-count" class="compact-log-count">0 logs</span>
             <label class="toggle"><input id="logging-enabled" type="checkbox" /> Logging</label>
         </header>
         <div id="auth-status-banner" class="auth-status-banner" role="status" aria-live="polite">
-          <strong id="auth-status-title">Checking access tokenâ€¦</strong>
+          <button id="auth-status-dismiss" class="auth-status-dismiss" type="button" aria-label="Dismiss token available message" title="Dismiss" hidden>&times;</button>
+          <strong id="auth-status-title">Checking access token...</strong>
           <p id="auth-status-message">Checking whether a token is available for Jupyter requests.</p>
         </div>
         <div id="debug-log-content" class="debug-log-content">

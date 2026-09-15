@@ -26,7 +26,18 @@
         </section>
         <section id="success" hidden>
             <dl><dt>Username</dt><dd id="username"></dd><dt>Jupyter server</dt><dd id="function-uri"></dd><dt>Storage</dt><dd>Token saved in this add-in’s local storage.</dd></dl>
-            <button id="replace-token" type="button">Replace token</button>
+            <div class="token-actions">
+                <button id="replace-token" type="button">Replace token</button>
+                <button id="reload-addin" type="button">Reload add-in</button>
+            </div>
+            <section id="reload-confirmation" class="reload-confirmation" role="alertdialog" aria-labelledby="reload-title" aria-describedby="reload-description" hidden>
+                <h2 id="reload-title">Reload the add-in?</h2>
+                <p id="reload-description">This resets the add-in's in-memory state and may interrupt ongoing requests. Saved tokens and the Python kernel are unchanged.</p>
+                <div class="confirmation-actions">
+                    <button id="reload-cancel" type="button">Cancel</button>
+                    <button id="reload-confirm" type="button">Reload add-in</button>
+                </div>
+            </section>
         </section>
         <p id="status" class="status" role="status" aria-live="polite"></p>
         <footer><button id="ok" class="primary" type="button" disabled>OK</button></footer>
