@@ -120,6 +120,26 @@ class SharedKernelExecutor:
         self.number = 0
         self.lock = asyncio.Lock()
 
+    async def ensure_ready(self):
+        """Initialize/recover without a worksheet request; never interrupt busy work."""
+        # Avoid building a queue behind worksheet calls.
+        if self.lock.locked():
+            return False
+        async with self.lock:
+            if self.kernel_id:
+                models = await resolved(self.manager.list_kernels())
+                model = next((m for m in models if m['id'] == self.kernel_id), None)
+                if model and model.get('execution_state') == 'busy':
+                    return False
+                if model:
+                    kernel = self.manager.get_kernel(self.kernel_id)
+                    if not await resolved(kernel.is_alive()):
+                        await resolved(self.manager.shutdown_kernel(self.kernel_id, now=True))
+                        self.kernel_id = None
+            kernel_id = await self._ensure_kernel()
+            await self._initialize(kernel_id)
+            return True
+
     async def _ensure_kernel(self):
         models = await resolved(self.manager.list_kernels())
         if self.kernel_id and any(model['id'] == self.kernel_id for model in models):

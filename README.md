@@ -84,3 +84,52 @@ The following screenshot Shows how Ribbon Call Back function works
 
 ## Reference 
 read some code from [appmode](https://github.com/oschuett/appmode)
+
+## License
+
+Versions distributed with the current [LICENSE](LICENSE) use **Business Source
+License 1.1** (SPDX: BUSL-1.1). BSL is source-available, not an open-source license
+before the Change Date. The full LICENSE controls; this is a summary.
+
+| Use | Production-use permission |
+| --- | --- |
+| Individuals, for personal purposes | Free |
+| Nonprofit organizations and nonprofit schools, for internal purposes | Free, regardless of user count |
+| Government-operated public schools, for their own students and staff | Free, regardless of user count |
+| Government-operated public universities, including hosting for anyone | Free for the university and all users of its hosted service, regardless of affiliation or user count |
+| Other government organizations | Separate commercial license required |
+| For-profit organizations, including for-profit schools, for internal purposes | Free for up to five distinct production users in any rolling 30-day period |
+| Other providers offering JupyterExcel as a hosted service to third parties | Separate commercial license required, regardless of user count or organization type |
+
+- Count people, including employees and contractors, across accounts and
+  installations. Six people using one shared login still count as six.
+- A for-profit organization has a one-time **60-calendar-day grace period**
+  beginning when it first exceeds five production users. Afterward, obtain a
+  commercial license or return to the five-user rolling 30-day limit. The grace
+  period does not reset with a new installation, version, or later increase.
+- The grace period does not permit excluded government or hosted-service use.
+- Government-operated public universities may host JupyterExcel for anyone,
+  including outside individuals and organizations. Both the university and users
+  of that hosted service are exempt from commercial-license and user-count
+  requirements. Outside organizations' independently operated deployments
+  remain subject to the ordinary terms.
+- Other qualifying schools and nonprofit universities may host internally for
+  their own students and staff; hosting for outside organizations requires a
+  commercial license. Using AWS or another cloud for internal purposes is not
+  itself excluded.
+- Non-production evaluation, development, and testing remain free under BSL.
+- Each version converts to the [MIT License](LICENSE-MIT) four years after its
+  first public distribution under BSL. A new version does not reset an earlier
+  version's conversion date.
+
+For commercial licensing, contact [support@jupyterexcel.com](mailto:support@jupyterexcel.com).
+
+Previously released MIT versions retain their MIT permissions. LICENSE-MIT also
+supplies the future Change License; it does not grant immediate MIT rights to
+new BSL-only project changes. Third-party licenses remain unchanged; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+User-created notebooks and data are not automatically relicensed by installing
+JupyterExcel. No user tracking or license-enforcement service has been added.
+
+Generated add-in assets include LICENSE.txt, LICENSE-MIT.txt and
+THIRD_PARTY_NOTICES.txt beside manifest.xml.

@@ -119,3 +119,7 @@ The scanner recognizes `@ribbon_function`, and the task pane displays discovered
 
 Excel caches add-in metadata, so newly added or renamed custom functions may require an Excel restart or cache clear. The server caches kernel clients and notebook modification timestamps to avoid rerunning unchanged notebooks. Cache keys must remain based on complete notebook paths.
 
+
+## Optional kernel maintenance
+
+JUPYTEREXCEL_KEEP_KERNEL_READY enables a per-server KernelKeeper. It starts on the server event loop and uses SharedKernelExecutor.ensure_ready under the same lock as worksheet requests. Per-instance kernel-manager hooks exempt only the managed kernel from idle culling and cancel the maintenance task before shutdown_all. Existing methods are restored on stop. Default request-triggered initialization remains unchanged. See DEVELOPMENT.md for deployment and recovery behavior.

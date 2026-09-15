@@ -67,9 +67,18 @@ class SharedKernelTests(unittest.IsolatedAsyncioTestCase):
             sm = SessionManager(kernel_manager=km, contents_manager=cm)
             try:
                 executor = SharedKernelExecutor(km, sm, cm, 'alice')
+                # Startup initialization happens before any Excel function request.
+                self.assertTrue(await executor.ensure_ready())
+                first_id = executor.kernel_id
+                self.assertTrue(await executor.ensure_ready())
+                self.assertEqual(executor.kernel_id, first_id)
+                await km.shutdown_kernel(first_id, now=True)
+                self.assertTrue(await executor.ensure_ready())
+                self.assertNotEqual(executor.kernel_id, first_id)
+
                 self.assertEqual(await executor.execute('ADD', [2, 3]), {'ok': True, 'result': 5})
                 sessions = await sm.list_sessions()
-                self.assertEqual(sessions[0]['name'], 'JupyterExcel - alice - 1')
+                self.assertEqual(sessions[-1]['name'], 'JupyterExcel - alice - 2')
             finally:
                 await km.shutdown_all(now=True)
                 cm.notary.store.close()

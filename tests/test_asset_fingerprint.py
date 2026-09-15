@@ -103,5 +103,24 @@ class FingerprintTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await self.store.generate())
 
 
+
+    async def test_license_notices_published_unchanged(self):
+        await self.store.generate()
+        project = Path(__file__).resolve().parents[1]
+        for root_name, asset_name in (
+            ('LICENSE', 'LICENSE.txt'),
+            ('LICENSE-MIT', 'LICENSE-MIT.txt'),
+            ('THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.txt'),
+        ):
+            expected = (project/root_name).read_bytes()
+            self.assertEqual((self.templates/asset_name).read_bytes(), expected)
+            self.assertEqual((self.store.root/asset_name).read_bytes(), expected)
+        notice = 'taskpane.js.LICENSE.txt'
+        self.assertEqual((self.store.root/notice).read_bytes(), (self.templates/notice).read_bytes())
+        pointer = json.loads((self.store.root/'current.json').read_text())
+        self.assertIn('LICENSE.txt', pointer['files'])
+        self.assertFalse(await self.store.generate())
+
+
 if __name__ == '__main__':
     unittest.main()

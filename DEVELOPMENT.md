@@ -413,3 +413,64 @@ Asset versions now use 14-digit local timestamps, for example `20260909102018`.
 The first generation after upgrading replaces an old-format current version;
 existing archived versions remain readable. Unchanged subsequent saves reuse
 the current version as before.
+
+## Keep the managed Excel kernel ready
+
+Set `JUPYTEREXCEL_KEEP_KERNEL_READY=1` to initialize the managed kernel when
+the single-user Jupyter server starts, without waiting for an Excel request.
+The default is disabled; `true`, `yes`, and `on` also enable it.
+
+For JupyterHub, add this to the existing Hub configuration (preserving other
+Spawner environment entries):
+
+```python
+c.Spawner.environment.update({
+    "JUPYTEREXCEL_KEEP_KERNEL_READY": "1",
+})
+```
+
+Restart the Hub to apply its configuration, then stop/start the affected user's
+server so it inherits the setting. For standalone JupyterLab on Linux:
+
+```bash
+JUPYTEREXCEL_KEEP_KERNEL_READY=1 jupyter lab
+```
+
+An INFO message announces that keep-ready is enabled, followed by
+`JupyterExcel kernel ready: <id> (user <username>)` after initialization.
+
+The keeper checks every 30 seconds, skips busy/reserved kernels, and initializes
+a replacement after a kernel disappears or its process dies. Failed checks retry
+after 30 seconds, doubling to a maximum of 300 seconds. It excludes only the
+managed kernel from the standard Jupyter kernel idle culler. Explicitly shutting
+down that kernel while keep-ready is enabled causes a replacement to be created.
+Server shutdown cancels maintenance before shutting down kernels and restores
+the original manager methods.
+
+Saved notebook code executes at startup and after kernel replacement/restart.
+In-memory state is lost on restart. Saving a notebook does not reload a running
+kernel. If initialization fails, fix the saved notebook and restart the managed
+kernel; it is retained for inspection rather than repeatedly recreated.
+
+This setting does not start a stopped Hub user server, override Hub idle-server
+culling, prevent host reboots, or interrupt a stuck/busy kernel. Keep the user
+server running and configure any Hub/server culler separately. Custom kernel
+managers without `cull_kernel_if_idle` require their own idle-policy configuration.
+
+## License release checklist
+
+The project license is BUSL-1.1 with project-specific parameters in LICENSE.
+LICENSE-MIT preserves the historical MIT text and is also the future Change
+License. Retain third-party notices; do not replace third-party headers with BSL.
+
+Before distributing a BSL release:
+- Give the release a distinct version/tag from earlier MIT releases.
+- Record its first public BSL distribution date and the corresponding fourth
+  anniversary in the release notes. Do not reset that date when redistributing
+  the same version. Local edits are not evidence of a public release date.
+- Keep the LICENSE parameters and README summary consistent.
+- Synchronize LICENSE to addin_template/LICENSE.txt, LICENSE-MIT to
+  addin_template/LICENSE-MIT.txt, and THIRD_PARTY_NOTICES.md to
+  addin_template/THIRD_PARTY_NOTICES.txt.
+- Include notices in the Python distribution and generated add-in assets.
+  The asset publisher copies the explicitly named notices and *.LICENSE.txt.

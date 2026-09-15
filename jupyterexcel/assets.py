@@ -81,7 +81,9 @@ class AssetStore:
     def _render(self, batch, functions):
         # Copy only browser assets, not build configuration or source maps.
         for source in self.templates.rglob('*'):
-            if source.is_file() and source.suffix in {'.html', '.js', '.css', '.png', '.svg', '.xml', '.json'} and source.name != 'package.json':
+            is_notice = (source.name in {'LICENSE.txt', 'LICENSE-MIT.txt', 'THIRD_PARTY_NOTICES.txt'}
+                         or source.name.endswith('.LICENSE.txt'))
+            if source.is_file() and (source.suffix in {'.html', '.js', '.css', '.png', '.svg', '.xml', '.json'} or is_notice) and source.name != 'package.json':
                 target = batch / source.relative_to(self.templates)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target)

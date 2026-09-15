@@ -100,6 +100,13 @@ def load_jupyter_server_extension(app):
                                     hub_user or getpass.getuser(), timeout=float(os.environ.get('JUPYTEREXCEL_EXECUTION_TIMEOUT', '30')))
     settings['jupyterexcel_asset_store'] = store
     settings['jupyterexcel_executor'] = executor
+    if os.environ.get('JUPYTEREXCEL_KEEP_KERNEL_READY', '').strip().lower() in {'1', 'true', 'yes', 'on'}:
+        from .kernel_keeper import KernelKeeper
+        keeper = KernelKeeper(executor, app.log)
+        keeper.install()
+        settings['jupyterexcel_kernel_keeper'] = keeper
+        app.log.info('JupyterExcel keep-ready enabled; saved notebooks will initialize automatically.')
+
     base = settings.get('base_url', '/')
 
     if base == '/':
