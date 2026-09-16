@@ -218,7 +218,7 @@ def client_configuration(base_url, hub_user=None):
     return {'apiBase': base, 'hubUser': hub_user, 'hubApiUrl': hub_base + '/hub/api/user'}
 
 
-def functions_javascript(functions, base_url, template_dir=None, hub_user=None):
+def functions_javascript(functions, base_url, template_dir=None, hub_user=None, diagnostics=None):
     """Bundle reusable runtime code and notebook-specific registrations."""
     templates = Path(template_dir) if template_dir else Path(__file__).parent / 'addin_template'
     runtime = (templates / 'jupyter-runtime.js').read_text(encoding='utf-8').rstrip()
@@ -238,6 +238,10 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None):
         if template.count(marker) != 1:
             raise ValueError('functions.js template must contain exactly one ' + marker)
     config = client_configuration(base_url, hub_user)
+    config.update(diagnostics or {})
+    builtin = templates / 'builtin-functions.js'
+    if builtin.exists():
+        registrations.insert(0, builtin.read_text(encoding='utf-8'))
     prefix = 'globalThis.JupyterExcelConfig = ' + json.dumps(config) + ';\n'
     return prefix + template.replace('{{FUNCTIONS_RUNTIME}}', runtime).replace('{{FUNCTION_REGISTRATIONS}}', '\n'.join(registrations))
 

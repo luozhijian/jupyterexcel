@@ -91,13 +91,25 @@ class AssetStore:
             dict(f.action, notebook=f.notebook) for f in functions if f.action
         ]}), encoding='utf-8')
         base = public_url(self.app)
-        script = functions_javascript(functions, base, template_dir=self.templates, hub_user=self.username)
+        from . import __version__
+        diagnostics = {'manifestUrl': self._asset_base_url() + '/manifest.xml',
+                       'addinVersion': __version__, 'assetVersion': '__JUPYTEREXCEL_BATCH_VERSION__'}
+        metadata = functions_metadata(functions)
+        builtin = json.loads((self.templates / 'builtin-functions.json').read_text(encoding='utf-8'))['functions']
+        reserved = {entry['id'].upper() for entry in builtin}
+        conflicts = reserved & {f.function_id.upper() for f in functions}
+        if conflicts:
+            raise ValueError('Function IDs reserved for JavaScript built-ins: ' + ', '.join(sorted(conflicts)))
+        metadata['functions'].extend(builtin)
+        script = functions_javascript(functions, base, template_dir=self.templates, hub_user=self.username, diagnostics=diagnostics)
         # Bundle the runtime template and generated registrations for Excel.
         (batch / 'functions.js').write_text(script, encoding='utf-8')
-        (batch / 'functions.json').write_text(json.dumps(functions_metadata(functions)), encoding='utf-8')
-        (batch / 'jupyter-config.js').write_text('globalThis.JupyterExcelConfig = ' + json.dumps(client_configuration(base, self.username)) + ';\n', encoding='utf-8')
+        (batch / 'functions.json').write_text(json.dumps(metadata), encoding='utf-8')
+        config = dict(client_configuration(base, self.username), **diagnostics)
+        (batch / 'jupyter-config.js').write_text('globalThis.JupyterExcelConfig = ' + json.dumps(config) + ';\n', encoding='utf-8')
         # Preserve the extension's current function-list task pane.
         rows = ''.join('<li><code>%s</code> - %s</li>' % (escape(f.function_id), escape(f.description)) for f in functions if f.kind == 'jupyter')
+        rows += ''.join('<li><code>%s</code> - %s</li>' % (escape(f['id']), escape(f['description'])) for f in builtin)
         ribbon = ''.join('<li>%s (%s)</li>' % (escape(f.excel_name), escape(f.notebook)) for f in functions if f.kind == 'ribbon')
         taskpane = batch / 'taskpane.html'
         content = taskpane.read_text(encoding='utf-8')
@@ -196,6 +208,8 @@ class AssetStore:
                     target = batch / name
                     target.parent.mkdir(parents=True, exist_ok=True)
                     data = source.read_bytes()
+                    if name in {'functions.js', 'jupyter-config.js'}:
+                        data = data.replace(b'__JUPYTEREXCEL_BATCH_VERSION__', version.encode('ascii'))
                     target.write_bytes(data)
                 files = self._inventory(batch)
                 (batch / '.ready').write_text('complete', encoding='utf-8')

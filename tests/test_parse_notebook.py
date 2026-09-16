@@ -91,7 +91,7 @@ class ParseNotebookTests(unittest.IsolatedAsyncioTestCase):
             before = source.read_bytes()
             output = Path(directory) / 'output'
             result = await generate_notebook(source, output)
-            self.assertEqual(result['worksheet_functions'], ['ADD'])
+            self.assertEqual(result['worksheet_functions'], ['ADD', 'MANIFESTURL', 'SERVERURL', 'ADDINVERSION', 'ASSETVERSION'])
             self.assertEqual(result['ribbon_functions'], ['Report'])
             self.assertEqual(source.read_bytes(), before)
             self.assertTrue((output / 'manifest.xml').exists())

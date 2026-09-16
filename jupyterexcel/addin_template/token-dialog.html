@@ -32,7 +32,14 @@
             </div>
             <section id="reload-confirmation" class="reload-confirmation" role="alertdialog" aria-labelledby="reload-title" aria-describedby="reload-description" hidden>
                 <h2 id="reload-title">Reload the add-in?</h2>
-                <p id="reload-description">This resets the add-in's in-memory state and may interrupt ongoing requests. Saved tokens and the Python kernel are unchanged.</p>
+                <p id="reload-description">
+                Reloading resets the add-in's in-memory state and may interrupt ongoing requests.
+                Updated JavaScript is loaded for ribbon actions, but new or changed worksheet
+                functions may require reopening Excel or reloading the add-in's registration
+                before they appear in formulas.
+                <br>
+                Saved tokens and the Python kernel remain unchanged.
+                </p>
                 <div class="confirmation-actions">
                     <button id="reload-cancel" type="button">Cancel</button>
                     <button id="reload-confirm" type="button">Reload add-in</button>

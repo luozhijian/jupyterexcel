@@ -1,0 +1,8 @@
+{
+  "functions": [
+    {"id":"MANIFESTURL","name":"MANIFESTURL","description":"Configured hosted manifest URL; not the original installation location.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
+    {"id":"SERVERURL","name":"SERVERURL","description":"Configured Jupyter API base URL.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
+    {"id":"ADDINVERSION","name":"ADDINVERSION","description":"JupyterExcel package version used to generate this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
+    {"id":"ASSETVERSION","name":"ASSETVERSION","description":"Generated asset version loaded by this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}}
+  ]
+}
