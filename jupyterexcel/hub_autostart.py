@@ -27,8 +27,8 @@ def configure_autostart(config, environ=None):
     
     environ = os.environ if environ is None else environ
     users = parse_users(environ.get(USERS, ''))
-    logging.log.warning('JupyterExcel startup for %s', ','.join(users))
-    
+    logging.getLogger("jupyterhub").info('JupyterExcel startup for %s', ','.join(users))
+
     if not users:
         return
     services = list(config.JupyterHub.get('services', []))
