@@ -25,7 +25,7 @@
   "devDependencies": {
     "@jupyterlab/builder": "~4.4.0",
     "typescript": "~5.7.3",
-    "webpack": "5.99.9"
+    "webpack": "5.104.1"
   },
   "jupyterlab": {
     "extension": true,
