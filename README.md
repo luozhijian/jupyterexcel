@@ -39,11 +39,10 @@ Before install, please download  https://jupyterexcel.com/excel-addin/jupyterhub
 The following screenshot shows the sample notebook file with a function sum. You can download TestingJupyter.ipynb or create your own.  The following is an instance I hosted in google cloud platform, you can open and add a function of yours.<br/>
 
 The following screenshot shows how excel Formula works. 
-![NotebookExample](https://github.com/luozhijian/jupyterexcel/raw/master/NotebookExample.png)
+![NotebookExample](https://github.com/luozhijian/jupyterexcel/raw/master/ExcelFormulaScreen.png)
 
 The following screenshot Shows how Ribbon Call Back function works
 ![Jupyter Ribbon CallBack](https://github.com/luozhijian/jupyterexcel/raw/master/ExcelRibbonScreen.png)
-
  
 
 ## Installation 
