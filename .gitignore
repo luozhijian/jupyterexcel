@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+ï»¿# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -142,3 +142,7 @@ cython_debug/
 
 #temporary test output
 test-output/
+
+# Frontend dependencies and generated TypeScript output
+node_modules/
+frontend/lib/

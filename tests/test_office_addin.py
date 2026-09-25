@@ -1,4 +1,6 @@
 import json
+import os
+from unittest.mock import patch
 import logging
 from types import SimpleNamespace
 from jupyterexcel.assets import AssetStore
@@ -62,6 +64,7 @@ class OfficeAddinTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 functions_javascript([], 'https://api.example.com', templates)
 
+    @patch.dict(os.environ, {"JUPYTEREXCEL_NAMESPACE": ""})
     def test_manifest_template_is_rendered_with_asset_urls(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
@@ -77,10 +80,9 @@ class OfficeAddinTests(unittest.TestCase):
             self.assertEqual(urls['Functions.Script.Url'], 'https://assets.example/addin/functions.js')
             self.assertEqual(urls['Functions.Metadata.Url'], 'https://assets.example/addin/functions.json')
             self.assertNotIn('{{ASSET_BASE_URL}}', manifest)
-            template = ET.parse(store.templates / 'manifest.xml')
             self.assertEqual(
-                tree.find(".//bt:String[@id='Functions.Namespace']", ns).attrib,
-                template.find(".//bt:String[@id='Functions.Namespace']", ns).attrib)
+                tree.find(".//bt:String[@id='Functions.Namespace']", ns).get('DefaultValue'),
+                'Jupyter')
 
 
 if __name__ == "__main__":

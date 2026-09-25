@@ -20,7 +20,7 @@ Read `ARCHITECTURE.md` before changing cross-layer behavior. Read `DEVELOPMENT.m
 - `@jupyter_function` defines an Excel worksheet custom function.
 - `@ribbon_function` defines ribbon-oriented behavior and must not appear in worksheet-function metadata.
 - At present, ribbon functions are discovered and displayed in the task pane; individual executable ribbon controls are not yet generated. Do not claim otherwise unless that behavior is implemented and tested.
-- Excel function IDs are stable API identifiers. Keep them unique and composed only of letters, numbers, and periods.
+- Excel function IDs are stable API identifiers. Keep them unique and composed only of ASCII letters, numbers, periods, and underscores. Preserve supplied case and punctuation; compare names case-insensitively when checking duplicates.
 - Notebook discovery must use the Jupyter `ContentsManager` and include nested directories.
 - Prefer static AST discovery. Do not execute all notebooks merely to build Office metadata.
 

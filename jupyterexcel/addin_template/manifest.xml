@@ -4,11 +4,11 @@
   <Version>1.0.0.0</Version>
   <ProviderName>www.jupyterexcel.com</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="JupyterExcelAddin"/>
+  <DisplayName DefaultValue="Jupyter For Excel Addin"/>
   <Description DefaultValue="Write your own Excel functions in Jupyter."/>
   <IconUrl DefaultValue="{{ASSET_BASE_URL}}/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="{{ASSET_BASE_URL}}/assets/icon-64.png"/>
-  <SupportUrl DefaultValue="https://github.com/luozhijian/jupyterexcel/issues"/>
+  <SupportUrl DefaultValue="https://jupyterexcel.com/excel-addin/support.html"/>
   <AppDomains>
     <AppDomain>https://www.jupyterexcel.com</AppDomain>
   </AppDomains>
@@ -142,15 +142,15 @@
         <bt:Url id="DebugLogTaskpane.Url" DefaultValue="{{ASSET_BASE_URL}}/taskpane.html?section=debug-log"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="Functions.Namespace" DefaultValue="Jupyter"/>
-        <bt:String id="GetStarted.Title" DefaultValue="Get started with your JupyterExcel add-in!"/>
+        <bt:String id="Functions.Namespace" DefaultValue="{{FUNCTIONS_NAMESPACE}}"/>
+        <bt:String id="GetStarted.Title" DefaultValue="Get started with your JupyterForExcel add-in!"/>
         <bt:String id="CommandsGroup.Label" DefaultValue="Jupyter"/>
         <bt:String id="ShowDebugLogButton.Label" DefaultValue="Log"/>
         <bt:String id="InputAccessTokenButton.Label" DefaultValue="Token"/>
         <bt:String id="NotebookActionsButton.Label" DefaultValue="Actions"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Your Jupyter Excel add-in loaded successfully. Go to the HOME tab and click the 'Show Task Pane' button to get started."/>
+        <bt:String id="GetStarted.Description" DefaultValue="Your Jupyter For Excel add-in loaded successfully. Go to the HOME tab and click the 'Show Task Pane' button to get started."/>
         <bt:String id="ShowDebugLogButton.Tooltip" DefaultValue="Open the task pane and display the Debug Log."/>
         <bt:String id="InputAccessTokenButton.Tooltip" DefaultValue="Verify and save a Jupyter access token."/>
         <bt:String id="NotebookActionsButton.Tooltip" DefaultValue="Open Notebook Actions to run Python actions on selected cells."/>

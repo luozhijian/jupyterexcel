@@ -16,8 +16,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const panelFor = (id: unknown) => typeof id === 'string'
       ? tracker.find(panel => panel.id === id) : tracker.currentWidget;
     app.commands.addCommand(command, {
-      label: 'Save and reload JupyterExcel',
-      caption: 'Save this notebook, publish add-in assets, and rerun its code in the shared JupyterExcel kernel',
+      label: 'Save and reload JupyterForExcel',
+      caption: 'Save this notebook, publish add-in assets, and rerun its code in the shared JupyterForExcel kernel',
       isEnabled: args => {
         const panel = panelFor(args.notebookId);
         return !!panel && !panel.isDisposed && !panel.context.model.readOnly && !pending.has(panel);
@@ -27,7 +27,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         if (!panel || panel.isDisposed || pending.has(panel)) return;
         pending.add(panel);
         app.commands.notifyCommandChanged(command);
-        const notice = Notification.emit('Saving notebook for JupyterExcel…', 'in-progress', {autoClose: false});
+        const notice = Notification.emit('Saving notebook for JupyterForExcel…', 'in-progress', {autoClose: false});
         try {
           await panel.context.ready;
           const settings = ServerConnection.makeSettings();
@@ -35,19 +35,19 @@ const plugin: JupyterFrontEndPlugin<void> = {
             () => panel.context.save(),
             () => panel.context.path,
             async path => {
-              Notification.update({id: notice, message: 'Generating assets and waiting for the JupyterExcel kernel…'});
+              Notification.update({id: notice, message: 'Generating assets and waiting for the JupyterForExcel kernel…'});
               const url = URLExt.join(settings.baseUrl, 'jupyterexcel', 'api', 'reload');
               const response = await ServerConnection.makeRequest(url, {
                 method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({path})
               }, settings);
               const value = await response.json();
               if (!response.ok || !value.ok) {
-                throw new Error(value.error?.message || `JupyterExcel returned HTTP ${response.status}`);
+                throw new Error(value.error?.message || `JupyterForExcel returned HTTP ${response.status}`);
               }
               return value as {path: string};
             }
           );
-          Notification.update({id: notice, type: 'success', message: `JupyterExcel reloaded: ${result.path}`, autoClose: 6000});
+          Notification.update({id: notice, type: 'success', message: `JupyterForExcel reloaded: ${result.path}`, autoClose: 6000});
         } catch (error) {
           Notification.update({id: notice, type: 'error', autoClose: false,
             message: `JupyterExcel reload failed: ${error instanceof Error ? error.message : String(error)}`});
@@ -62,7 +62,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     app.docRegistry.addWidgetExtension('Notebook', {
       createNew: widget => {
         const button = new ToolbarButton({label: 'Save & reload Excel',
-          tooltip: 'Save and reload JupyterExcel: reruns notebook code; earlier cells may remain changed if a later cell fails',
+          tooltip: 'Save and reload JupyterForExcel: reruns notebook code; earlier cells may remain changed if a later cell fails',
           onClick: () => { void app.commands.execute(command, {notebookId: widget.id}); }});
         const update = () => { button.enabled = app.commands.isEnabled(command, {notebookId: widget.id}); };
         app.commands.commandChanged.connect(update);

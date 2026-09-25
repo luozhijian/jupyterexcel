@@ -7,7 +7,7 @@ reference http://scottlobdell.me/2015/04/decorators-arguments-python/
 @author: Administrator
 """
 import inspect
-from .metadata import validate_metadata
+from .metadata import validate_metadata, validate_function_name
 
 
 #a dictionary to save all cacll back functions
@@ -38,9 +38,10 @@ def jupyter_function(_function=None, *, name=None, description=None,
             raise ValueError('Repeating worksheet parameters must be last; keyword parameters are unsupported.')
         types = parameter_types or {}
         dimensionalities = parameter_dimensionality or {}
+        export_name = validate_function_name(function_name if name is None else name)
         metadata = {
-            "id": (name or function_name).upper(),
-            "name": (name or function_name).upper(),
+            "id": export_name,
+            "name": export_name,
             "description": description or inspect.getdoc(function) or function_name,
             "result_type": result_type,
             "result_dimensionality": result_dimensionality,

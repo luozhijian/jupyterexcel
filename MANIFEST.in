@@ -1,4 +1,8 @@
-include LICENSE THIRD_PARTY_NOTICES.md
+include LICENSE LICENSE-MIT THIRD_PARTY_NOTICES.md
+recursive-include Markdowns *.md
+recursive-include tests *.py *.cjs
+recursive-include examples *.ipynb
+include jupyterexcel.json
 recursive-include jupyterexcel/labextension *
 include frontend/package.json frontend/package-lock.json frontend/tsconfig.json
 include frontend/finalize.mjs

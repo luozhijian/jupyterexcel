@@ -1,5 +1,13 @@
 """Shared validation for explicit Office worksheet metadata."""
 from collections.abc import Mapping
+import re
+
+
+def validate_function_name(name):
+    if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9._]+', name):
+        raise ValueError('Worksheet function names must contain only ASCII letters, digits, periods, or underscores.')
+    return name
+
 
 TYPES = ('any', 'number', 'string', 'boolean')
 DIMENSIONALITIES = ('scalar', 'matrix')

@@ -352,7 +352,7 @@
         resultRevision = -1;
       });
     } catch (error) { status(error.message); }
-    finally {  result=null; writing = false; busy = false; updateButtons(); }
+    finally { writing = false; busy = false; updateButtons(); }
   }
 
   function confirmWrite(message, pending) {

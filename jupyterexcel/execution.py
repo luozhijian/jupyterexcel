@@ -26,8 +26,8 @@ def invoke_export(function_id, inputs, action=None):
         metadata = metadata or (getattr(value, '__jupyterexcel_function__', None) if action is not True else None)
         if callable(value) and isinstance(metadata, dict):
             name = metadata.get('id', '')
-            normalized = ''.join(c if c.isascii() and (c.isalnum() or c == '.') else '.' for c in name).upper().strip('.')
-            if normalized == function_id.upper():
+            # Excel names are case-insensitive, but punctuation is significant.
+            if name.casefold() == function_id.casefold():
                 matches[id(value)] = value
     if len(matches) != 1:
         return json.dumps({'ok': False, 'error': {'code': 'function_not_found' if not matches else 'duplicate_function', 'message': 'Expected one exported function in the selected kernel.'}})
@@ -314,7 +314,7 @@ if _jupyterexcel_was_initialized:
                 raise ExecutionError(
                     503,
                     'kernel_busy',
-                    'The JupyterExcel kernel is busy; retry when it is idle.',
+                    'The JupyterForExcel kernel is busy; retry when it is idle.',
                 )
             await self._initialize(kernel_id)
             manager = self.manager

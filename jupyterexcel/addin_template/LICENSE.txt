@@ -7,7 +7,7 @@ Parameters
 
 Licensor: Jim Luo
 
-Licensed Work: JupyterExcel, including JupyterExcelAddin, in versions
+Licensed Work: JupyterExcel, including JupyterForExcelAddin, in versions
 distributed by the Licensor with this License.
 Copyright 2019-2026 Jim Luo
 

@@ -22,16 +22,16 @@
             accessTokenDialog = result.value;
             accessTokenDialog.addEventHandler(Office.EventType.DialogMessageReceived, onMessage);
             accessTokenDialog.addEventHandler(Office.EventType.DialogEventReceived, args => {
-              if (args.error !== 12006) console.error('JupyterExcel dialog error', args.error);
+              if (args.error !== 12006) console.error('JupyterForExcel dialog error', args.error);
               finishCommand();
             });
           } else {
-            console.error('JupyterExcel dialog could not open', result.error?.code);
+            console.error('JupyterForExcel dialog could not open', result.error?.code);
             finishCommand();
           }
         });
     } catch (_) {
-      console.error('JupyterExcel dialog could not open');
+      console.error('JupyterForExcel dialog could not open');
       finishCommand();
     }
   }
@@ -97,7 +97,7 @@
       if (details) details.open = true;
       document.getElementById('action-select')?.focus();
     } catch (error) {
-      console.error('JupyterExcel could not open Notebook Actions', error.message);
+      console.error('JupyterForExcel could not open Notebook Actions', error.message);
     } finally {
       event.completed();
     }
@@ -111,7 +111,7 @@
       if (details) details.open = false;
       document.getElementById('logging-enabled')?.focus();
     } catch (error) {
-      console.error('JupyterExcel could not open Debug Log', error.message);
+      console.error('JupyterForExcel could not open Debug Log', error.message);
     } finally {
       event.completed();
     }

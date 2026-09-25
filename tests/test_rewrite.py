@@ -39,6 +39,12 @@ class HTTPTests(AsyncHTTPTestCase):
             (r'/other/(.*)', TestHandler, {'executor': FakeExecutor(), 'hub_user': 'bob'}),
         ], cookie_secret='test', identity_provider=TestIdentity())
 
+    def test_names_preserve_case_underscores_and_periods(self):
+        for name in ('string_join', 'string.join', 'My_Join'):
+            response = self.fetch('/Excel/' + name + '?params=[]')
+            self.assertEqual(response.code, 200)
+            self.assertEqual(json.loads(response.body)['result'][0], name)
+
     def test_get_post_arrays_and_errors(self):
         get = self.fetch('/Excel/ADD?params=%5B%5B3,4%5D%5D')
         post = self.fetch('/Excel/ADD', method='POST', headers={'Content-Type': 'application/json', 'Authorization': 'token dummy'}, body='[[3,4]]')
@@ -83,7 +89,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             notebook = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell('@jupyter_function\ndef saved(a): return a')])
             cm.save({'type':'notebook','content':notebook}, 'saved.ipynb')
             await store.task
-            self.assertEqual(json.loads(store.resolve('functions.json').read_text())['functions'][0]['id'], 'SAVED')
+            self.assertEqual(json.loads(store.resolve('functions.json').read_text())['functions'][0]['id'], 'saved')
             cm.notary.store.close()
 
     async def test_save_hook_keeps_existing_registration(self):
@@ -104,6 +110,7 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
             load_jupyter_server_extension(app)
             self.assertEqual(len(hooks), 2)
 
+    @patch.dict(os.environ, {"JUPYTEREXCEL_PUBLIC_URL": ""})
     async def test_generation_and_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             app = SimpleNamespace(contents_manager=Contents(), log=logging.getLogger('test'), web_app=SimpleNamespace(settings={'base_url': '/user/alice/'}), port=8888)

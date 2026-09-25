@@ -1,7 +1,7 @@
 {
   "name": "@jupyterexcel/labextension",
   "version": "0.1.0",
-  "description": "Save a notebook and reload it into the managed JupyterExcel kernel",
+  "description": "Save a notebook and reload it into the managed JupyterForExcel kernel",
   "license": "BUSL-1.1",
   "type": "module",
   "main": "lib/index.js",

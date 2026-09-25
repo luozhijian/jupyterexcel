@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 from pathlib import Path
 import shutil
 import tempfile
+import xml.etree.ElementTree as ET
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -40,6 +42,55 @@ class FingerprintTests(unittest.IsolatedAsyncioTestCase):
             asset_url='https://assets.example/excel-addin',
         )
 
+    def manifest_namespace(self):
+        tree = ET.parse(self.store.root / 'manifest.xml')
+        return tree.find(
+            ".//{http://schemas.microsoft.com/office/officeappbasictypes/1.0}String"
+            "[@id='Functions.Namespace']"
+        ).get('DefaultValue')
+
+    async def test_namespace_defaults_for_unset_empty_and_whitespace(self):
+        with patch.dict(os.environ):
+            os.environ.pop('JUPYTEREXCEL_NAMESPACE', None)
+            self.assertTrue(await self.store.generate())
+            self.assertEqual(self.manifest_namespace(), 'Jupyter')
+            for value in ('', '  \t\n'):
+                os.environ['JUPYTEREXCEL_NAMESPACE'] = value
+                self.assertFalse(await self.store.generate())
+                self.assertEqual(self.manifest_namespace(), 'Jupyter')
+
+    async def test_namespace_changes_publish_and_preserve_function_ids(self):
+        with patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': 'Jupyter'}):
+            await self.store.generate()
+            previous = self.store.current
+            metadata = (self.store.root / 'functions.json').read_bytes()
+            with patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': '  MyCompany  '}):
+                self.assertTrue(await self.store.generate())
+                self.assertNotEqual(self.store.current, previous)
+                self.assertEqual(self.manifest_namespace(), 'MyCompany')
+                self.assertEqual((self.store.root / 'functions.json').read_bytes(), metadata)
+                self.assertFalse(await self.store.generate())
+            self.assertTrue(await self.store.generate())
+            self.assertEqual(self.manifest_namespace(), 'Jupyter')
+
+    async def test_invalid_namespace_preserves_published_assets(self):
+        with patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': 'Jupyter'}):
+            await self.store.generate()
+            before = {str(p): p.read_bytes() for p in self.store.root.rglob('*') if p.is_file()}
+            for value in ('1Bad', '_Bad', 'Bad Name', 'Bad-Name', 'A' * 33,
+                          'Bad"/><x>', 'A&B', 'Bad\nName', 'München'):
+                with self.subTest(value=value), patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': value}):
+                    with self.assertRaisesRegex(ValueError, 'JUPYTEREXCEL_NAMESPACE must'):
+                        await self.store.generate()
+                    self.assertEqual(
+                        {str(p): p.read_bytes() for p in self.store.root.rglob('*') if p.is_file()}, before)
+
+    async def test_namespace_accepts_supported_characters_and_length_limits(self):
+        for value in ('A', 'MyCompany_2.Tools', 'A' * 32):
+            with self.subTest(value=value), patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': value}):
+                self.assertTrue(await self.store.generate())
+                self.assertEqual(self.manifest_namespace(), value)
+
     async def test_unchanged_after_restart_keeps_every_file_timestamp(self):
         self.assertTrue(await self.store.generate())
         before = {str(p): (p.read_bytes(), p.stat().st_mtime_ns)
@@ -66,8 +117,8 @@ class FingerprintTests(unittest.IsolatedAsyncioTestCase):
             file = self.templates/name
             file.write_bytes(file.read_bytes() + b'\n')
             self.assertTrue(await self.store.generate())
-        self.app.port = 9999
-        self.assertTrue(await self.store.generate())
+        with patch.dict(os.environ, {"JUPYTEREXCEL_PUBLIC_URL": "https://changed.example:9999"}):
+            self.assertTrue(await self.store.generate())
 
     async def test_missing_or_modified_public_files_are_repaired_without_version(self):
         await self.store.generate()

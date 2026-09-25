@@ -61,7 +61,7 @@ class ExcelModeHandler(APIHandler):
                 username = user.get('name', user.get('username')) if isinstance(user, dict) else getattr(user, 'username', None)
                 if username != self.hub_user:
                     raise ExecutionError(403, 'wrong_user', 'Call the authenticated user\'s own Jupyter server.')
-            if not re.fullmatch(r'[A-Za-z0-9.]+', function_id):
+            if not re.fullmatch(r'[A-Za-z0-9._]+', function_id):
                 raise ExecutionError(400, 'function_id', 'Invalid exported function ID.')
             if raw is None or len(raw) > 1024 * 1024:
                 raise ExecutionError(400, 'params', 'Supply params as a JSON array, at most 1 MiB.')

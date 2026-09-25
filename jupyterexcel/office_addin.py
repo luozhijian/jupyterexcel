@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from dataclasses import dataclass, field
 from urllib.parse import quote
-from .metadata import validate_metadata
+from .metadata import validate_metadata, validate_function_name
 
 
 CUSTOM_FUNCTION_SCHEMA = (
@@ -40,9 +40,7 @@ class NotebookFunction:
 
     @property
     def function_id(self):
-        # Office IDs allow only letters, numbers, and periods.
-        value = "".join(c if (c.isascii() and c.isalnum()) or c == "." else "." for c in self.excel_name)
-        return value.upper().strip(".")
+        return validate_function_name(self.excel_name) if self.kind == 'jupyter' else self.excel_name
 
 
 def _literal(node, default=None):
@@ -88,7 +86,9 @@ def _function_from_ast(node, decorator, notebook):
         excel_name = positional[0] if positional else keywords.get("name", node.name)
         description = "Ribbon command: " + str(excel_name)
     else:
-        excel_name = keywords.get("name") or (positional[0] if positional else node.name)
+        excel_name = keywords.get("name")
+        if excel_name is None:
+            excel_name = positional[0] if positional else node.name
         description = keywords.get("description") or ast.get_docstring(node) or node.name
     arguments = node.args.posonlyargs + node.args.args
     if kind == 'jupyter_function' and call:
@@ -177,7 +177,7 @@ def discover_notebooks(contents_manager):
     seen = set()
     unique = []
     for item in functions:
-        key = item.function_id
+        key = item.function_id.casefold()
         if item.kind == "jupyter" and key in seen:
             raise ValueError("Duplicate @jupyter_function Excel name: %s" % key)
         if item.kind == "jupyter":

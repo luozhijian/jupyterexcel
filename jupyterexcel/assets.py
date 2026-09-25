@@ -58,10 +58,10 @@ class AssetStore:
                     if child['type'] in ('directory', 'notebook'):
                         await visit(child['path'])
         await visit('')
-        ids = [f.function_id for f in found if f.kind == 'jupyter']
+        ids = [f.function_id.casefold() for f in found if f.kind == 'jupyter']
         if len(set(ids)) != len(ids) or any(not x for x in ids):
             raise ValueError('Worksheet function IDs must be nonempty and unique.')
-        actions = [f.action['id'] for f in found if f.action]
+        actions = [f.action['id'].casefold() for f in found if f.action]
         if len(set(actions)) != len(actions) or set(actions) & set(ids):
             raise ValueError('Function IDs must be unique across worksheet functions and actions.')
         return found
@@ -79,6 +79,12 @@ class AssetStore:
         return configured + ('/' + self.username_path if self.username_path else '')
 
     def _render(self, batch, functions):
+        namespace = os.environ.get('JUPYTEREXCEL_NAMESPACE', '').strip() or 'Jupyter'
+        if not re.fullmatch(r'[A-Za-z][A-Za-z0-9._]{0,31}', namespace):
+            raise ValueError(
+                'JUPYTEREXCEL_NAMESPACE must be 1-32 characters, start with an ASCII '
+                'letter, and contain only ASCII letters, digits, periods, or underscores.'
+            )
         # Copy only browser assets, not build configuration or source maps.
         for source in self.templates.rglob('*'):
             is_notice = (source.name in {'LICENSE.txt', 'LICENSE-MIT.txt', 'THIRD_PARTY_NOTICES.txt'}
@@ -124,6 +130,7 @@ class AssetStore:
         taskpane.write_text(content, encoding='utf-8')
         manifest = (batch / 'manifest.xml').read_text(encoding='utf-8')
         manifest = manifest.replace('{{ASSET_BASE_URL}}', self._asset_base_url())
+        manifest = manifest.replace('{{FUNCTIONS_NAMESPACE}}', namespace)
         # Supplied manifest references icon sizes absent from templates.
         for size in (16, 64, 80):
             if not (batch / 'assets' / f'icon-{size}.png').exists():
@@ -188,7 +195,7 @@ class AssetStore:
                 fingerprint = hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
                 if self._reuse(fingerprint, inventory):
                     self.functions = functions
-                    self.app.log.info('JupyterExcel assets unchanged; existing version %s reused', self.current)
+                    self.app.log.info('JupyterForExcel assets unchanged; existing version %s reused', self.current)
                     return False
                 try:
                     self.root.mkdir(parents=True, exist_ok=True)
@@ -219,7 +226,7 @@ class AssetStore:
                 pointer.write_text(json.dumps(state, sort_keys=True), encoding='utf-8')
                 os.replace(pointer, self.root / 'current.json')
                 self.current, self.functions = version, functions
-                self.app.log.info('JupyterExcel assets generated: %s', batch)
+                self.app.log.info('JupyterForExcel assets generated: %s', batch)
                 return True
 
     def schedule(self, **kwargs):
