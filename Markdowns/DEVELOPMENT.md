@@ -474,3 +474,16 @@ Before distributing a BSL release:
   addin_template/THIRD_PARTY_NOTICES.txt.
 - Include notices in the Python distribution and generated add-in assets.
   The asset publisher copies the explicitly named notices and *.LICENSE.txt.
+
+## Frontend security dependencies
+
+Run `npm ci` and `npm audit` from `frontend/` when checking dependency security.
+The `sanitize-html` override requires the patched 2.17.7 release or a later
+2.17.x patch because JupyterLab dependencies still request the older 2.12.x line.
+Do not remove the override until upstream dependency ranges resolve to a patched
+version. Webpack is pinned to 5.104.1 to address its buildHttp advisories.
+
+After dependency updates, run `npm test` and `npm run build`, and include the
+regenerated `jupyterexcel/labextension` assets with the package and lockfile.
+The extension consumes shared JupyterLab modules at runtime; these dependency
+updates do not upgrade an installed JupyterLab host. Maintain that host separately.
