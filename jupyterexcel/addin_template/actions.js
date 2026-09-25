@@ -59,12 +59,103 @@
       if (color === '') fill.clear(); else fill.color = color;
     }
   }
-  const helpers = {matrix, excelLiteral, overlaps, parseValue, cellBlock, applyFills};
+  function eventTouchesInput(event, inputs, formatOnly = false) {
+    const relevant = inputs.filter(input => input.sheetId === event.worksheetId && (!formatOnly || input.format));
+    if (!relevant.length) return false;
+    // Structural edits can shift inputs even when the reported cells do not overlap.
+    if (!formatOnly && event.changeType && event.changeType !== 'RangeEdited') return true;
+    if (typeof event.address !== 'string' || !event.address.trim()) return true;
+    const column = text => [...text.toUpperCase()].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
+    // Strip optional sheet qualifiers, including quoted names containing commas.
+    const address = event.address.replace(/(?:'(?:[^']|'')*'|[^!,]+)!/g, '');
+    return address.split(',').some(part => {
+      const text = part.trim().replace(/\$/g, '');
+      let match = /^([A-Z]+)([1-9]\d*)(?::([A-Z]+)([1-9]\d*))?$/i.exec(text);
+      let row, col, lastRow, lastCol;
+      if (match) {
+        row = Number(match[2]) - 1; col = column(match[1]);
+        lastRow = Number(match[4] || match[2]) - 1; lastCol = column(match[3] || match[1]);
+      } else if ((match = /^([A-Z]+):([A-Z]+)$/i.exec(text))) {
+        row = 0; lastRow = 1048575; col = column(match[1]); lastCol = column(match[2]);
+      } else if ((match = /^([1-9]\d*):([1-9]\d*)$/.exec(text))) {
+        row = Number(match[1]) - 1; lastRow = Number(match[2]) - 1; col = 0; lastCol = 16383;
+      } else return true; // Unknown event addresses must not make stale results writable.
+      const changed = {sheetId: event.worksheetId, row: Math.min(row, lastRow), column: Math.min(col, lastCol),
+        rows: Math.abs(lastRow - row) + 1, columns: Math.abs(lastCol - col) + 1};
+      return relevant.some(input => overlaps(input, changed));
+    });
+  }
+  function createInputMonitor(excel, supportsFormat, invalidate, ignore = () => false) {
+    let generation = 0, handles = [], queue = Promise.resolve();
+    const enqueue = operation => {
+      const pending = queue.then(operation);
+      queue = pending.catch(() => {});
+      return pending;
+    };
+    async function removeHandlers() {
+      const remaining = [], errors = [];
+      for (const handle of handles) {
+        try {
+          await excel.run(handle.context, async context => {
+            handle.remove();
+            await context.sync();
+          });
+        } catch (error) { remaining.push(handle); errors.push(error); }
+      }
+      handles = remaining;
+      if (errors.length) throw errors[0];
+    }
+    return {
+      stop() {
+        generation++; // Queued events become inert before asynchronous removal starts.
+        return enqueue(removeHandlers);
+      },
+      start(inputs) {
+        const current = ++generation;
+        const watched = inputs.map(input => ({...input}));
+        return enqueue(async () => {
+          await removeHandlers();
+          if (current !== generation) return;
+          try {
+            await excel.run(async context => {
+              for (const sheetId of new Set(watched.map(input => input.sheetId))) {
+                const sheet = context.workbook.worksheets.getItem(sheetId);
+                const handler = format => event => {
+                  if (current === generation && !ignore() && eventTouchesInput(event, watched, format)) invalidate();
+                };
+                handles.push(sheet.onChanged.add(handler(false)));
+                if (watched.some(input => input.sheetId === sheetId && input.format)) {
+                  if (!supportsFormat()) throw new Error('Monitoring fill changes requires ExcelApi 1.9.');
+                  handles.push(sheet.onFormatChanged.add(handler(true)));
+                }
+              }
+              await context.sync();
+            });
+          } catch (error) {
+            if (current === generation) generation++;
+            try { await removeHandlers(); } catch (_) { /* Retain failed removals for the next attempt. */ }
+            throw error;
+          }
+        });
+      }
+    };
+  }
+  const helpers = {matrix, excelLiteral, overlaps, parseValue, cellBlock, applyFills, eventTouchesInput, createInputMonitor};
   if (typeof module !== 'undefined' && module.exports) module.exports = helpers;
   if (typeof document === 'undefined') return;
   const $ = id => document.getElementById(id);
   let actions = [], controls = [], busy = false, result = null, targets = {}, outputTarget = null;
   let revision = 0, resultRevision = -1, writing = false;
+  const inputMonitor = createInputMonitor(Excel,
+    () => Office.context.requirements.isSetSupported('ExcelApi', '1.9'), stale, () => writing);
+  async function stopMonitoring() {
+    try { await inputMonitor.stop(); }
+    catch (error) { console.warn('Could not remove action input event handlers:', error); }
+  }
+  function inputsChanged() {
+    stale();
+    void stopMonitoring();
+  }
   let selectionField = null, selectionSequence = 0;
   function stopSelection() {
     if (selectionField) selectionField.input.classList.remove('range-picking');
@@ -93,7 +184,7 @@
   function action() { return actions.find(item => item.id === $('action-select').value); }
   function status(text) { $('action-status').textContent = text; }
   function stale() {
-      if (writing) return;
+    if (writing) return;
     revision++;
     if (result) { status('Result is out of date. Run again before writing.'); updateButtons(); }
   }
@@ -148,22 +239,23 @@
         if (field.type === 'boolean') input.checked = field.default;
         else input.value = field.type === 'matrix' ? JSON.stringify(field.default) : field.default;
       }
-      input.oninput = () => { stale(); updateButtons(); };
+      input.oninput = () => { inputsChanged(); updateButtons(); };
     } else {
       input.readOnly = true; input.placeholder = 'Click here, then select cells in Excel';
       input.onclick = () => activateSelection({input, single: field.source === 'cell', limit: field.max_cells,
-        set: ref => { entry.reference = ref; stale(); }});
+        set: ref => { entry.reference = ref; inputsChanged(); }});
 
     }
     row.prepend(input);
     if (field.repeatable) {
       const remove = element('button', 'Remove'); remove.type = 'button';
-      remove.onclick = () => { stopSelection(); group.entries.splice(group.entries.indexOf(entry), 1); row.remove(); stale(); updateButtons(); };
+      remove.onclick = () => { stopSelection(); group.entries.splice(group.entries.indexOf(entry), 1); row.remove(); inputsChanged(); updateButtons(); };
       row.appendChild(remove);
     }
     container.appendChild(row); updateButtons();
   }
   function selectAction() {
+    void stopMonitoring();
     stopSelection(); controls = []; result = null; targets = {}; outputTarget = null; revision++;
     $('action-inputs').replaceChildren(); $('action-result').replaceChildren(); $('action-target').value = '';
     for (const id of ['action-target-label','action-write','action-popup','action-updates']) $(id).hidden = true;
@@ -177,7 +269,7 @@
       $('action-inputs').appendChild(container); addEntry(group);
       if (field.repeatable) {
         const add = element('button', 'Add input'); add.type = 'button';
-        add.onclick = () => { addEntry(group); stale(); updateButtons(); }; container.appendChild(add);
+        add.onclick = () => { addEntry(group); inputsChanged(); updateButtons(); }; container.appendChild(add);
       }
     }
     status(selected ? 'Choose inputs, then run.' : 'No actions found. Save a notebook with a ribbon_function action, then use Reload add-in on the Token page.');
@@ -269,6 +361,9 @@
     const selected = action(), startedRevision = revision;
     busy = true; result = null; updateButtons(); $('action-result').replaceChildren(); status('Reading inputs…');
     try {
+      await inputMonitor.start(controls.flatMap(group => group.field.source === 'value' ? [] :
+        group.entries.map(entry => ({...entry.reference,
+          format: (group.field.read || []).includes('format.fillColors')}))));
       const args = []; targets = {};
       for (const group of controls) {
         const values = [];
@@ -291,6 +386,7 @@
       if (selected.output.default === 'popup') showPopup();
     } catch (error) {
       result = null;
+      await stopMonitoring();
       status(error.message + ' No automatic retry was performed.');
     } finally { busy = false; updateButtons(); }
     if (result && resultRevision === revision && selected.output.default === 'range') {
@@ -306,7 +402,6 @@
   async function write(updates = false) {
     if (!result || resultRevision !== revision || busy) return;
     stopSelection(); busy = true; updateButtons();
-    writing = true;
     try {
       const jobs = [];
       if (updates) {
@@ -339,6 +434,7 @@
           if (!allowed) { status('Write cancelled. Result remains available in the task pane.'); return; }
         }
         if (revision !== writeRevision) throw new Error('Workbook changed before writing. Run again.');
+        writing = true; // Ignore our own events only during the actual write.
         for (const job of pending) job.range.values = job.values.map(row => row.map(excelLiteral));
         await context.sync();
         for (const job of pending) {
@@ -352,7 +448,12 @@
         resultRevision = -1;
       });
     } catch (error) { status(error.message); }
-    finally { writing = false; busy = false; updateButtons(); }
+    finally {
+      // A cancelled/preflight-rejected write keeps its preview and monitoring.
+      // Once writing starts, discard even on failure: some cells may have changed.
+      if (writing) { result = null; await stopMonitoring(); }
+      writing = false; busy = false; updateButtons();
+    }
   }
 
   function confirmWrite(message, pending) {
@@ -405,16 +506,6 @@
       });
     } catch (_) { status('Automatic range selection is unavailable in this Excel host.'); }
     await refresh();
-    // Best-effort stale detection; snapshot wording also covers unsupported events/new sheets.
-    try {
-      await Excel.run(async context => {
-        const sheets = context.workbook.worksheets; sheets.load('items'); await context.sync();
-        for (const sheet of sheets.items) {
-          sheet.onChanged.add(stale);
-          if (Office.context.requirements.isSetSupported('ExcelApi','1.9')) sheet.onFormatChanged.add(stale);
-        }
-        await context.sync();
-      });
-    } catch (_) { /* Older hosts still use explicit Run. */ }
+
   });
 })();

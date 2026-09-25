@@ -512,3 +512,27 @@ edit; generating help never executes a function. Default expressions are shown
 as source text, not evaluated values. Serve the help directory through the same
 static web server as manifest.xml. Regenerate assets and reload Excel's add-in
 metadata after upgrading to activate its Help on this function links.
+
+## Action input change monitoring
+
+Actions register worksheet value-change handlers before reading selected inputs.
+Formatting handlers are registered only on input sheets whose fields read fill
+colors (ExcelApi 1.9). Events are filtered to the selected ranges; structural
+changes and unrecognized addresses on a watched sheet invalidate conservatively.
+These events are not a complete recalculation/dependency tracker: results remain
+snapshots, and users should rerun after changes that Excel does not report.
+
+Both handler types are removed using their original request contexts when inputs
+or the selected action change, before a new run, after a failed run, and after
+an attempted worksheet write. Cancelled or preflight-rejected writes preserve the
+preview and monitoring. Hiding the Actions panel preserves monitoring too.
+Monitoring remains active during overwrite confirmation; a relevant input change
+prevents the write. Only the actual write phase suppresses events from this action.
+Once writing starts, the result is discarded even on error because a partial
+write may have occurred. Failed event removals are retained for retry; obsolete
+callbacks are immediately deactivated. Failure to register required monitoring
+prevents an action run instead of silently producing an unmonitored result.
+
+Run `node --test tests/test_actions_events.cjs` for event lifecycle and write
+confirmation regression tests. Verify Office event delivery in live Excel as
+well; mocked host tests cannot establish host timing or coauthoring behavior.

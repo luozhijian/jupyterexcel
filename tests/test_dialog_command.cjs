@@ -41,3 +41,32 @@ test('ribbon commands switch separate views and complete', async () => {
  assert.equal(shown,2);
  assert.equal(completed,2);
 });
+
+for (const name of ['openNotebookActions', 'openDebugLog']) {
+ test(`${name} completes before the task-pane display promise settles`, async () => {
+  const commands = {}, errors = [];
+  let rejectDisplay, completed = 0;
+  const display = new Promise((resolve, reject) => { rejectDisplay = reject; });
+  const elements = Object.fromEntries(['actions-view','debug-view','action-details','action-select','logging-enabled'].map(id => [id,{hidden:false,open:true,focus(){}}]));
+  const Office = {onReady:fn=>fn(), actions:{associate:(key,fn)=>commands[key]=fn}, addin:{showAsTaskpane:()=>display}};
+  vm.runInNewContext(source, {Office, document:{getElementById:id=>elements[id]}, console:{error:(...args)=>errors.push(args)}});
+  commands[name]({completed:()=>completed++});
+  assert.equal(completed, 1, 'must complete even if display never settles');
+  assert.equal(elements['actions-view'].hidden, name === 'openDebugLog');
+  assert.equal(elements['debug-view'].hidden, name === 'openNotebookActions');
+  rejectDisplay(new Error('display rejected'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0][1], 'display rejected');
+  assert.equal(completed, 1, 'late rejection must not complete twice');
+ });
+ test(`${name} completes if the display call throws synchronously`, () => {
+  const commands = {}, errors = [];
+  let completed = 0;
+  const Office = {onReady:fn=>fn(), actions:{associate:(key,fn)=>commands[key]=fn}, addin:{showAsTaskpane:()=>{throw new Error('display failed');}}};
+  vm.runInNewContext(source, {Office, document:{getElementById:()=>({focus(){}})}, console:{error:(...args)=>errors.push(args)}});
+  commands[name]({completed:()=>completed++});
+  assert.equal(completed, 1);
+  assert.equal(errors.length, 1);
+ });
+}

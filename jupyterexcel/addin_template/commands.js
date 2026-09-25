@@ -88,28 +88,36 @@
       accessTokenDialog?.messageChild(JSON.stringify({type:'error', message:'Token verification or shared storage failed.'}), {targetOrigin: window.location.origin});
     }
   }
-  async function openNotebookActions(event) {
+  function openNotebookActions(event) {
     try {
-      await Office.addin.showAsTaskpane();
       document.getElementById('actions-view').hidden = false;
       document.getElementById('debug-view').hidden = true;
       const details = document.getElementById('action-details');
       if (details) details.open = true;
       document.getElementById('action-select')?.focus();
+      // The shared runtime stays alive after the ribbon command completes.
+      // Do not wait for host visibility before acknowledging this command.
+      Office.addin.showAsTaskpane().catch(error => {
+        console.error('JupyterForExcel could not open Notebook Actions', error.message);
+      });
     } catch (error) {
       console.error('JupyterForExcel could not open Notebook Actions', error.message);
     } finally {
       event.completed();
     }
   }
-  async function openDebugLog(event) {
+  function openDebugLog(event) {
     try {
-      await Office.addin.showAsTaskpane();
       document.getElementById('actions-view').hidden = true;
       document.getElementById('debug-view').hidden = false;
       const details = document.getElementById('action-details');
       if (details) details.open = false;
       document.getElementById('logging-enabled')?.focus();
+      // The shared runtime stays alive after the ribbon command completes.
+      // Do not wait for host visibility before acknowledging this command.
+      Office.addin.showAsTaskpane().catch(error => {
+        console.error('JupyterForExcel could not open Debug Log', error.message);
+      });
     } catch (error) {
       console.error('JupyterForExcel could not open Debug Log', error.message);
     } finally {
