@@ -11,6 +11,7 @@ from html import escape
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
+from .help_pages import ensure_help_pages
 from .execution import resolved
 from .office_addin import scan_notebook, functions_metadata, functions_javascript, public_url, client_configuration
 
@@ -89,7 +90,7 @@ class AssetStore:
         for source in self.templates.rglob('*'):
             is_notice = (source.name in {'LICENSE.txt', 'LICENSE-MIT.txt', 'THIRD_PARTY_NOTICES.txt'}
                          or source.name.endswith('.LICENSE.txt'))
-            if source.is_file() and (source.suffix in {'.html', '.js', '.css', '.png', '.svg', '.xml', '.json'} or is_notice) and source.name != 'package.json':
+            if source.is_file() and (source.suffix in {'.html', '.js', '.css', '.png', '.svg', '.xml', '.json'} or is_notice) and source.name not in {'package.json', 'help_template.html'}:
                 target = batch / source.relative_to(self.templates)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target)
@@ -107,6 +108,8 @@ class AssetStore:
         if conflicts:
             raise ValueError('Function IDs reserved for JavaScript built-ins: ' + ', '.join(sorted(conflicts)))
         metadata['functions'].extend(builtin)
+        for entry in metadata['functions']:
+            entry['helpUrl'] = self._asset_base_url() + '/help/functions/' + quote(entry['id'], safe='') + '.html'
         script = functions_javascript(functions, base, template_dir=self.templates, hub_user=self.username, diagnostics=diagnostics)
         # Bundle the runtime template and generated registrations for Excel.
         (batch / 'functions.js').write_text(script, encoding='utf-8')
@@ -138,6 +141,7 @@ class AssetStore:
         import xml.etree.ElementTree as ET
         ET.fromstring(manifest)
         (batch / 'manifest.xml').write_text(manifest, encoding='utf-8')
+        return metadata['functions'], namespace
 
     @staticmethod
     def _file_hash(path):
@@ -190,7 +194,10 @@ class AssetStore:
             # Temporary output is discarded automatically on no-op or failure.
             with tempfile.TemporaryDirectory(prefix='jupyterexcel-build-') as directory:
                 staged = Path(directory)
-                self._render(staged, functions)
+                entries, namespace = self._render(staged, functions)
+                # Help is user-maintained, outside immutable batches and repair hashes.
+                # Check even on unchanged builds so deleted pages can be recreated.
+                ensure_help_pages(self.root, self.templates, entries, namespace, functions)
                 inventory = self._inventory(staged)
                 fingerprint = hashlib.sha256(json.dumps(inventory, sort_keys=True).encode()).hexdigest()
                 if self._reuse(fingerprint, inventory):

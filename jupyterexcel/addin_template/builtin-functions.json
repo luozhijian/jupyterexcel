@@ -1,8 +1,8 @@
 {
   "functions": [
-    {"id":"MANIFESTURL","name":"ManifestUrl","description":"Configured hosted manifest URL; not the original installation location.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
-    {"id":"SERVERURL","name":"ServerUrl","description":"Configured Jupyter API base URL.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
-    {"id":"ADDINVERSION","name":"AddinVersion","description":"JupyterExcel package version used to generate this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
-    {"id":"ASSETVERSION","name":"AssetVersion","description":"Generated asset version loaded by this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}}
+    {"id":"MANIFESTURL","name":"zzManifestUrl","description":"Configured hosted manifest URL; not the original installation location.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
+    {"id":"SERVERURL","name":"zzServerUrl","description":"Configured Jupyter API base URL.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
+    {"id":"ADDINVERSION","name":"zzAddinVersion","description":"JupyterForExcel package version used to generate this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
+    {"id":"ASSETVERSION","name":"zzAssetVersion","description":"Generated asset version loaded by this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}}
   ]
 }

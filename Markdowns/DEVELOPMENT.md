@@ -487,3 +487,28 @@ After dependency updates, run `npm test` and `npm run build`, and include the
 regenerated `jupyterexcel/labextension` assets with the package and lockfile.
 The extension consumes shared JupyterLab modules at runtime; these dependency
 updates do not upgrade an installed JupyterLab host. Maintain that host separately.
+
+## Function help pages
+
+Asset generation automatically adds a `helpUrl` to every worksheet function,
+including built-ins. Pages are created from the packaged
+`jupyterexcel/addin_template/help_template.html` at
+`<asset output>/help/functions/<function ID>.html`, beside the published manifest.
+Links use `JUPYTEREXCEL_ASSET_URL` and the same per-user suffix as the manifest
+on JupyterHub. Function IDs retain their spelling; page titles and syntax use
+the displayed function name and configured namespace.
+
+Existing pages are never overwritten, including after restarting the server or
+editing functions, templates, or the namespace. Edit those HTML files directly
+(or through a future documentation editor). Back up this folder along with your
+other maintained content. Help pages are excluded from version archives and
+asset repair hashes. A deleted page is recreated on the next generation, even
+if the other assets have not changed. Renaming a function creates a new page;
+old pages are retained for manual cleanup.
+
+The initial page includes description, syntax, argument types, optional status,
+and Python default expressions where available. Examples are placeholders to
+edit; generating help never executes a function. Default expressions are shown
+as source text, not evaluated values. Serve the help directory through the same
+static web server as manifest.xml. Regenerate assets and reload Excel's add-in
+metadata after upgrading to activate its Help on this function links.

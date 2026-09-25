@@ -24,6 +24,7 @@ class Parameter:
     description: str = ""
     dimensionality: str = "scalar"
     repeating: bool = False
+    default: str = None
 
 
 @dataclass
@@ -117,6 +118,7 @@ def _function_from_ast(node, decorator, notebook):
             type=parameter_types.get(argument.arg, "any"),
             dimensionality=parameter_dimensionality.get(argument.arg, "scalar"),
             optional=index >= defaults_start,
+            default=ast.unparse(node.args.defaults[index - defaults_start]) if index >= defaults_start else None,
             description=argument.arg,
         ))
     if node.args.vararg:
