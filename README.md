@@ -30,12 +30,16 @@ The following screenshot Shows how Ribbon Call Back function works
 ## Explain to Logic behind
 Python package jupyterexcel will turn Jyptyer Notebook into Rest API services https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM with json as POST data for parameters. Excel Addin javascript virtual machine will generate JSON format input which pass in from Microsoft custom-functions-runtime.js, make fetch to Jupter Notebook Rest API, wait the result and sync result to Excel cells. Excel Addin Ribbon and Task pane make similiar calls. 
 
-Here are two URLs: https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM  and https://jupyterexcel.com/excel-addin/jupyterhub/functions.js (please open https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml then view source of https://jupyterexcel.com/excel-addin/jupyterhub/functions.html to see reference to functions.js).  In linux, these two URL looks like from one website. Actually, functions.js from Nginx config, while /Excel/SUM processed by JupyterHub. In windows, Jupyter only support single user JupyterLab. So, there is no need for username jupyterhub part. In the url, /user/jupyterhub will be remove to such as https://www.jupyterexcel.com/Excel/SUM.   Also, there is no tools in windows like Nginx, so in Windows, it will be two sites, such as: https://localhost/excel-addin/functions.js setup in IIS, and https://localhost:8888/Excel for JupyterLab to startup. In order for Excel addin javascript runtime which downloaded functions.js from https://localhost to call https://localhost:8888/Excel, you need setup CORS. 
+Here are two URLs: https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM  and https://jupyterexcel.com/excel-addin/jupyterhub/functions.js (please open https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml then view source of https://jupyterexcel.com/excel-addin/jupyterhub/functions.html to see reference to functions.js).  
 
-For your own setup, above www.jupyterexcel.com and username jupyterhub can be replaced. It will be explained below as environment variables.  
+In linux, these two URL looks like from one website, but they are handled by two different services. In Nginx config, **excel-addin** is mapped to a folder: /var/www/jupyterexcel/excel-addin.  All other requests are handled by JupyterHub. 
+
+In windows, Jupyter only support single user JupyterLab. So, there is no need for username jupyterhub part. In the url, /user/jupyterhub will be remove to such as https://www.jupyterexcel.com/Excel/SUM.   Also, I cannot find tools in windows like Nginx to make two services as one, so in Windows, it will be two sites, such as: https://localhost/functions.js setup in IIS, and https://localhost:8888/ for all other requests which will be handled by JupyterLab. In order for Excel addin javascript runtime which downloaded functions.js from https://localhost to call https://localhost:8888/Excel, you need setup CORS. 
+
+For your own setup, above www.jupyterexcel.com, localhost and username jupyterhub can be replaced. It will be explained below as environment variables.  
 
 ## Installation
-    For Excel client setup, see the [JupyterExcel add-in setup guide](client-setup.html), including screenshots for token entry, formulas, and ribbon actions.
+    For Excel client setup, see the ![JupyterExcel add-in setup guide](https://www.jupyterexcel.com/excel-addin/client-setup.html)
 
 The following is server setup: 
 
@@ -202,9 +206,9 @@ or configure `c.Spawner.env_keep` for selected inherited variables. See the
 
 | Variable | Where to set it | Purpose, default, and example |
 | --- | --- | --- |
-| `JUPYTEREXCEL_ASSET_DIR` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Absolute, writable directory for generated manifest, JavaScript, and HTML files. Example: `/var/www/jupyterexcel/excel-addin` or `C:\Websites\JupyterExcel\excel-addin`. On Hub, an encoded username subfolder is appended automatically. |
-| `JUPYTEREXCEL_ASSET_URL` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Public HTTPS URL serving `ASSET_DIR`, without a query or fragment. Example: `https://www.jupyterexcel.com/excel-addin`. On Hub, the username is appended automatically, so do not include it here. Setting this does not configure IIS or Nginx; configure that server separately. |
-| `JUPYTEREXCEL_PUBLIC_URL` | Spawner on Hub; OS environment for standalone Jupyter | Jupyter API base URL reachable from Excel. Example: `https://www.jupyterexcel.com/user/alice`. Include the user's server path on Hub. If unset, the extension logs an error and derives a URL from Jupyter's server settings; set it explicitly behind a reverse proxy. This is the API address, not the static asset address. |
+| `JUPYTEREXCEL_ASSET_DIR` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Absolute, Jupyter writable directory for generated manifest, JavaScript, and HTML files. Example: `/var/www/jupyterexcel/excel-addin` or `C:\Websites\JupyterExcel\excel-addin`. On Hub, an encoded username subfolder is appended automatically. |
+| `JUPYTEREXCEL_ASSET_URL` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Public HTTPS URL serving `ASSET_DIR`, without a query or fragment. It is the url path for manifest.xml. Example: `https://www.jupyterexcel.com/excel-addin`. On Hub, the username is appended automatically, so do not include it here. Setting this does not configure IIS or Nginx; configure that server separately. |
+| `JUPYTEREXCEL_PUBLIC_URL` | Spawner on Hub; OS environment for standalone Jupyter | Jupyter API base URL reachable from Excel. Example: `https://www.jupyterexcel.com/user/alice` or `https://localhost:8888` for Windows. Include the user's server path on Hub. If unset, the extension logs an error and derives a URL from Jupyter's server settings; set it explicitly behind a reverse proxy. This is the API address, not the static asset address above. |
 | `JUPYTEREXCEL_KEEP_KERNEL_READY` | Spawner on Hub; OS environment for standalone Jupyter | Set `1` to start and maintain the managed kernel before an Excel request. Also accepts `true`, `yes`, or `on`, ignoring case. Unset or `0` disables proactive startup; the first request initializes the kernel instead. It does not start a stopped Hub user server. |
 | `JUPYTEREXCEL_NAMESPACE` | Spawner on Hub; OS environment for standalone Jupyter | Formula prefix, such as `MyCompany` for `=MyCompany.My_Join(...)`. Defaults to `Jupyter` when unset or blank. Surrounding whitespace is trimmed. Use 1–32 ASCII characters, starting with a letter, followed by letters, digits, periods, or underscores. |
 | `JUPYTEREXCEL_AUTO_START_USERS` | Hub OS/process environment only | Comma-separated existing Hub usernames, such as `alice,bob`. With `configure_autostart(c)`, starts their default user servers when Hub starts. Unset or blank disables this feature. It does not create accounts or start named servers; it has no effect in standalone Jupyter. |
@@ -242,15 +246,16 @@ example above enables keep-ready for all spawned users, including users not in
 
 ### Example: standalone Jupyter on Windows
 
-Run in PowerShell, then start Jupyter from that same terminal:
+
+Run in PowerShell, then start Jupyter from that same terminal using port 8888:
 
 ```powershell
 $env:JUPYTEREXCEL_ASSET_DIR = "C:\Websites\JupyterExcel\excel-addin"
 $env:JUPYTEREXCEL_ASSET_URL = "https://localhost/excel-addin"
-$env:JUPYTEREXCEL_PUBLIC_URL = "https://localhost:8888"
+$env:JUPYTEREXCEL_PUBLIC_URL = "https://localhost:8888" 
 $env:JUPYTEREXCEL_KEEP_KERNEL_READY = "1"
 $env:JUPYTEREXCEL_NAMESPACE = "Jupyter"
-jupyter lab
+jupyter lab --ServerApp.certfile="C:\Users\xxxx\.office-addin-dev-certs\localhost.crt" --ServerApp.keyfile="C:\Users\xxxx\.office-addin-dev-certs\localhost.key" --ServerApp.port=8888 --ServerApp.port_retries=0 --ServerApp.allow_origin="https://localhost"
 ```
 
 Use URLs matching your actual HTTPS and static-server configuration. These
@@ -259,10 +264,11 @@ it. On Linux, use `export JUPYTEREXCEL_NAMESPACE="Jupyter"` and the same pattern
 for the other variables before starting Jupyter. For a service, configure its
 service environment instead of relying on an interactive terminal.
 
-Restart the relevant process after changing its environment. On Hub, restart Hub
-to apply its configuration, and stop/start existing user servers to receive new
-Spawner values. After changing the namespace, reload the updated manifest in
-Excel as described below.
+Restart the relevant process after changing its environment. 
+
+Once you saw files generated in folder C:\Websites\JupyterExcel\excel-addin, you can setup IIS.
+
+![Windows IIS Sample Setup](https://github.com/luozhijian/jupyterexcel/raw/master/WindowsIISSetup.png)
 
 ## Formula names
 
