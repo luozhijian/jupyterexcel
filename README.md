@@ -19,7 +19,7 @@ def add(a, b=0):
 
 ## Example
 
-The example uses a sample notebook containing a `Sum` function. You can download `JupyterFunctions.ipynb` in this folder or create your own notebook. 
+The example uses a sample notebook containing a `Sum` function. You can download `JupyterFunctions.ipynb` from this folder or create your own notebook.
 
 The following screenshot shows how Excel formulas work.
 ![NotebookExample](https://github.com/luozhijian/jupyterexcel/raw/master/ExcelFormulaScreen.png)
@@ -29,16 +29,15 @@ The following screenshot shows how a ribbon callback function works.
 
 
 ## How it works
-The `jupyterexcel` Python package exposes Jupyter notebook functions through REST API endpoints, such as https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM, with parameters sent as JSON in the POST body. The Excel add-in’s JavaScript runtime receives the function arguments, sends them to the Jupyter REST API using `fetch`, waits for the result, and returns it to Excel. Ribbon actions and the task pane make similar calls.
+The `JupyterExcel` Python package exposes Jupyter notebook functions through REST API endpoints, such as https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM, with parameters sent as JSON in the POST body. The Excel add-in’s JavaScript runtime receives the function arguments, sends them to the Jupyter REST API using `fetch`, waits for the result, and sync it back to Excel. Ribbon actions and the task pane make similar calls.
 
-Here are two kinds URLs: https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM and [https://jupyterexcel.com/**excel-addin**/jupyterhub/functions.js](https://jupyterexcel.com)
-. Open https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml, then view the source of https://jupyterexcel.com/excel-addin/jupyterhub/functions.html to see the reference to `functions.js`. This functions.js is one of the files generated from above Notebook by package JupyterExcel.
+There are two types of URLs: one points to files that Excel downloads when loading the add-in (such as `manifest.xml`), and the other points to API endpoints that process Excel function calls. Examples of these two types of URLs are [https://jupyterexcel.com/**excel-addin**/jupyterhub/manifest.xml](https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml) and https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM. If you open https://jupyterexcel.com/excel-addin/jupyterhub/functions.json, you can see the description of the `Sum` function shown above. The `functions.json` file is one of the files generated from the notebook above by the JupyterExcel package.
 
-In the Linux setup, these two kinds URLs appear to belong to one website, but they are handled by two different services. In the Nginx configuration, **excel-addin** is mapped to the folder `/var/www/jupyterexcel/excel-addin`. All other requests are handled by JupyterHub.
+In the Linux setup, these two types of URLs appear to belong to one website, but they are handled by two different services. In the Nginx configuration, **excel-addin** is mapped to the folder `/var/www/jupyterexcel/excel-addin` where JupyterExcel stores the generated Excel add-in files when notebooks are saved. All other requests are forwarded to JupyterHub for processing.
 
-The Windows setup described here uses standalone, single-user JupyterLab, so the URL does not need the `/user/jupyterhub` segment. For example, the endpoint becomes https://www.jupyterexcel.com/Excel/SUM. This setup uses two sites: IIS serves the add-in files, such as https://localhost/functions.js or https://localhost/manifest.xml, and JupyterLab handles API requests at https://localhost:8888/.  In https://localhost/functions.js, there is no need to have **excel-addin** in the url because it is a standalone web setup in IIS, unlike in linux Nginx it needs to use folder **excel-addin** to seperate and forward to different services.  To allow the Excel add-in’s JavaScript runtime, which downloads and runs functions.js from https://localhost, to call Jupyter service https://localhost:8888/Excel, we need configure CORS.
+The Windows setup described here uses standalone, single-user JupyterLab, so the URL does not need the `/user/jupyterhub` segment. For example, the endpoint becomes https://www.jupyterexcel.com/Excel/SUM. This setup uses two sites: IIS serves the add-in files, such as https://localhost/functions.js or https://localhost/manifest.xml, and JupyterLab handles API requests at https://localhost:8888/. The URL https://localhost/functions.js does not need the **excel-addin** path segment because IIS serves these files as a separate website. In the Linux Nginx example, the **excel-addin** path distinguishes static-file requests from requests forwarded to JupyterHub. To allow the Excel add-in’s JavaScript runtime, which downloads and runs `functions.js` from https://localhost, to call the Jupyter service at https://localhost:8888/Excel, configure CORS.
 
-For your own setup, replace `www.jupyterexcel.com`, `localhost`, and the username `jupyterhub` as appropriate. They are environment variables and will be explained below.
+For your own setup, replace `www.jupyterexcel.com`, `localhost`, and the username `jupyterhub` as appropriate. These values are configured through the environment variables explained below.
 
 ## Installation
 
@@ -55,6 +54,42 @@ Then run the following command to check whether `jupyterexcel` is already enable
     jupyter server extension list
     # If it is not listed as enabled, use the following command to enable it:
     jupyter server extension enable --py jupyterexcel --sys-prefix
+
+
+## Environment Variables
+
+All six settings are ordinary process environment variables. **Spawner** and
+**OS environment** describe how they reach the process that reads them:
+
+- **JupyterHub:** put the first five settings in `c.Spawner.environment` in
+  `jupyterhub_config.py`. JupyterHub passes them to each user's Jupyter server.
+  The `c.Spawner.environment` block belongs in `jupyterhub_config.py`, because
+  it configures how JupyterHub launches user servers. For standalone Jupyter,
+  set environment variables before startup or use `os.environ` assignments in
+  `jupyter_server_config.py`.
+- **Standalone Jupyter:** set the first five in the terminal or service environment
+  before launching Jupyter. There is no Spawner in this setup.
+  On native Windows, use this **standalone** setup, as JupyterHub is not officially supported there (use a Linux environment, a Linux container, or a Linux VM for JupyterHub).
+- **Hub startup:** set `JUPYTEREXCEL_AUTO_START_USERS` in the Hub process environment,
+  or through `os.environ` in `jupyterhub_config.py` before `configure_autostart(c)`.
+  Putting it only in `c.Spawner.environment` will not start user servers.
+
+Setting `os.environ` changes only the current Python process and any child
+processes that subsequently inherit its environment; it does not permanently change Windows or Linux settings.
+JupyterHub filters inheritance, so a variable set in the Hub's OS environment is
+not automatically passed to user servers. Use `c.Spawner.environment` explicitly,
+or configure `c.Spawner.env_keep` for selected inherited variables. See the
+[JupyterHub Spawner environment reference](https://jupyterhub.readthedocs.io/en/latest/reference/api/spawner.html#jupyterhub.spawner.Spawner.environment).
+
+| Variable | Where to set it | Purpose, default, and example |
+| --- | --- | --- |
+| `JUPYTEREXCEL_ASSET_DIR` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Absolute directory writable by Jupyter for generated manifest, JavaScript, and HTML files. Example: `/var/www/jupyterexcel/excel-addin` or `C:\Websites\JupyterExcel\excel-addin`. On Hub, an encoded username subfolder is appended automatically. |
+| `JUPYTEREXCEL_ASSET_URL` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Public HTTPS URL serving `ASSET_DIR`, without a query or fragment. It is the base URL for `manifest.xml`. Example: `https://www.jupyterexcel.com/excel-addin`. On Hub, the username is appended automatically, so do not include it here. Setting this does not configure IIS or Nginx; configure that server separately. |
+| `JUPYTEREXCEL_PUBLIC_URL` | Spawner on Hub; OS environment for standalone Jupyter | Jupyter API base URL reachable from Excel. Example: `https://www.jupyterexcel.com/user/alice` or `https://localhost:8888` for Windows. Include the user's server path on Hub. If unset, the extension logs an error and derives a URL from Jupyter's server settings; set it explicitly behind a reverse proxy. This is the API address, not the static asset address above. |
+| `JUPYTEREXCEL_KEEP_KERNEL_READY` | Spawner on Hub; OS environment for standalone Jupyter | Set `1` to start and maintain the managed kernel before an Excel request. Also accepts `true`, `yes`, or `on`, ignoring case. Unset or `0` disables proactive startup; the first request initializes the kernel instead. It does not start a stopped Hub user server. |
+| `JUPYTEREXCEL_NAMESPACE` | Spawner on Hub; OS environment for standalone Jupyter | Formula prefix, such as `MyCompany` for `=MyCompany.Sum(...)`. Defaults to `Jupyter` when unset or blank. Surrounding whitespace is trimmed. Use 1–32 ASCII characters, starting with a letter, followed by letters, digits, periods, or underscores. |
+| `JUPYTEREXCEL_AUTO_START_USERS` | Hub OS/process environment only | Comma-separated existing Hub usernames, such as `alice,bob`. With `configure_autostart(c)`, starts their default user servers when Hub starts. Unset or blank disables this feature. It does not create accounts or start named servers; it has no effect in standalone Jupyter. |
+
 
 ## Server settings
 
@@ -77,6 +112,20 @@ c.Spawner.environment.update({
     "JUPYTEREXCEL_NAMESPACE": "Jupyter",
 })
 
+```
+
+Adjust the following settings for your deployment.
+
+For the standalone Windows setup, you can use IIS to serve the manifest and related HTML and JavaScript files. If the add-in files and Jupyter API use different origins—for example, different ports on the same server—set `allow_origin` for CORS.
+```
+c.IdentityProvider.token = 'ABCD'   # Use token authentication; a redirect to a password login page will not work for Excel API calls.
+c.ServerApp.allow_origin = 'https://your-addin-host'  # Use the exact origin hosting your add-in when it differs from Jupyter.
+c.ServerApp.allow_remote_access = True  # Enable access from other computers.
+```
+
+The following JupyterHub configuration reduces the initial response time by starting the configured user server and keeping its managed kernel ready for Excel requests. Append it after the Spawner settings in `jupyterhub_config.py`.
+
+```
 try:
     import logging
     import os
@@ -93,16 +142,7 @@ except Exception:
 
 ```
 
-Adjust the following settings for your deployment.
-
-For the standalone Windows setup, you can use IIS to serve the manifest and related HTML and JavaScript files. If the add-in files and Jupyter API use different origins—for example, different ports on the same server—set `allow_origin` for CORS.
-```
-c.IdentityProvider.token = 'ABCD'   # Use token authentication; a redirect to a password login page will not work for Excel API calls.
-c.ServerApp.allow_origin = 'https://your-addin-host'  # Use the exact origin hosting your add-in when it differs from Jupyter.
-c.ServerApp.allow_remote_access = True  # Enable access from other computers.
-```
-
-On Linux, Nginx can serve the HTML, JavaScript, and `manifest.xml` files from the same origin as JupyterHub, so cross-origin API access is unnecessary.
+On Linux, Nginx can serve the HTML, JavaScript, and `manifest.xml` files from the same origin as JupyterHub, so cross-origin API access (CORS) is unnecessary. A sample Nginx configuration follows:
 
 ```
 server {
@@ -185,36 +225,6 @@ server {
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
 }
 ```
-
-## Environment Variables
-
-All six settings are ordinary process environment variables. **Spawner** and
-**OS environment** describe how they reach the process that reads them:
-
-- **JupyterHub:** put the first five settings in `c.Spawner.environment` in
-  `jupyterhub_config.py`. JupyterHub passes them to each user's Jupyter server.
-  This block does not belong in `jupyter_server_config.py`.
-- **Standalone Jupyter:** set the first five in the terminal or service environment
-  before launching Jupyter. There is no Spawner in this setup.
-- **Hub startup:** set `JUPYTEREXCEL_AUTO_START_USERS` in the Hub process environment,
-  or through `os.environ` in `jupyterhub_config.py` before `configure_autostart(c)`.
-  Putting it only in `c.Spawner.environment` will not start user servers.
-
-Setting `os.environ` changes only the current Python process and its subsequently
-inheriting children; it does not permanently change Windows or Linux settings.
-JupyterHub filters inheritance, so a variable set in the Hub's OS environment is
-not automatically passed to user servers. Use `c.Spawner.environment` explicitly,
-or configure `c.Spawner.env_keep` for selected inherited variables. See the
-[JupyterHub Spawner environment reference](https://jupyterhub.readthedocs.io/en/latest/reference/api/spawner.html#jupyterhub.spawner.Spawner.environment).
-
-| Variable | Where to set it | Purpose, default, and example |
-| --- | --- | --- |
-| `JUPYTEREXCEL_ASSET_DIR` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Absolute directory writable by Jupyter for generated manifest, JavaScript, and HTML files. Example: `/var/www/jupyterexcel/excel-addin` or `C:\Websites\JupyterExcel\excel-addin`. On Hub, an encoded username subfolder is appended automatically. |
-| `JUPYTEREXCEL_ASSET_URL` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Public HTTPS URL serving `ASSET_DIR`, without a query or fragment. It is the base URL for `manifest.xml`. Example: `https://www.jupyterexcel.com/excel-addin`. On Hub, the username is appended automatically, so do not include it here. Setting this does not configure IIS or Nginx; configure that server separately. |
-| `JUPYTEREXCEL_PUBLIC_URL` | Spawner on Hub; OS environment for standalone Jupyter | Jupyter API base URL reachable from Excel. Example: `https://www.jupyterexcel.com/user/alice` or `https://localhost:8888` for Windows. Include the user's server path on Hub. If unset, the extension logs an error and derives a URL from Jupyter's server settings; set it explicitly behind a reverse proxy. This is the API address, not the static asset address above. |
-| `JUPYTEREXCEL_KEEP_KERNEL_READY` | Spawner on Hub; OS environment for standalone Jupyter | Set `1` to start and maintain the managed kernel before an Excel request. Also accepts `true`, `yes`, or `on`, ignoring case. Unset or `0` disables proactive startup; the first request initializes the kernel instead. It does not start a stopped Hub user server. |
-| `JUPYTEREXCEL_NAMESPACE` | Spawner on Hub; OS environment for standalone Jupyter | Formula prefix, such as `MyCompany` for `=MyCompany.Sum(...)`. Defaults to `Jupyter` when unset or blank. Surrounding whitespace is trimmed. Use 1–32 ASCII characters, starting with a letter, followed by letters, digits, periods, or underscores. |
-| `JUPYTEREXCEL_AUTO_START_USERS` | Hub OS/process environment only | Comma-separated existing Hub usernames, such as `alice,bob`. With `configure_autostart(c)`, starts their default user servers when Hub starts. Unset or blank disables this feature. It does not create accounts or start named servers; it has no effect in standalone Jupyter. |
 
 ### Example: JupyterHub
 
