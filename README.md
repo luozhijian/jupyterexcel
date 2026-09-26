@@ -31,13 +31,14 @@ The following screenshot shows how a ribbon callback function works.
 ## How it works
 The `jupyterexcel` Python package exposes Jupyter notebook functions through REST API endpoints, such as https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM, with parameters sent as JSON in the POST body. The Excel add-in’s JavaScript runtime receives the function arguments, sends them to the Jupyter REST API using `fetch`, waits for the result, and returns it to Excel. Ribbon actions and the task pane make similar calls.
 
-Here are two example URLs: https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM and https://jupyterexcel.com/excel-addin/jupyterhub/functions.js. Open https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml, then view the source of https://jupyterexcel.com/excel-addin/jupyterhub/functions.html to see the reference to `functions.js`.
+Here are two kinds URLs: https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM and [https://jupyterexcel.com/**excel-addin**/jupyterhub/functions.js](https://jupyterexcel.com)
+. Open https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml, then view the source of https://jupyterexcel.com/excel-addin/jupyterhub/functions.html to see the reference to `functions.js`. This functions.js is one of the files generated from above Notebook by package JupyterExcel.
 
-In the Linux setup, these two URLs appear to belong to one website, but they are handled by two different services. In the Nginx configuration, **excel-addin** is mapped to the folder `/var/www/jupyterexcel/excel-addin`. All other requests are handled by JupyterHub.
+In the Linux setup, these two kinds URLs appear to belong to one website, but they are handled by two different services. In the Nginx configuration, **excel-addin** is mapped to the folder `/var/www/jupyterexcel/excel-addin`. All other requests are handled by JupyterHub.
 
-The Windows setup described here uses standalone, single-user JupyterLab, so the URL does not need the `/user/jupyterhub` segment. For example, the endpoint becomes https://www.jupyterexcel.com/Excel/SUM. This setup uses two sites: IIS serves the add-in files, such as https://localhost/functions.js, and JupyterLab handles API requests at https://localhost:8888/. To allow the Excel add-in’s JavaScript runtime, loaded from https://localhost, to call https://localhost:8888/Excel, configure CORS.
+The Windows setup described here uses standalone, single-user JupyterLab, so the URL does not need the `/user/jupyterhub` segment. For example, the endpoint becomes https://www.jupyterexcel.com/Excel/SUM. This setup uses two sites: IIS serves the add-in files, such as https://localhost/functions.js or https://localhost/manifest.xml, and JupyterLab handles API requests at https://localhost:8888/.  In https://localhost/functions.js, there is no need to have **excel-addin** in the url because it is a standalone web setup in IIS, unlike in linux Nginx it needs to use folder **excel-addin** to seperate and forward to different services.  To allow the Excel add-in’s JavaScript runtime, which downloads and runs functions.js from https://localhost, to call Jupyter service https://localhost:8888/Excel, we need configure CORS.
 
-For your own setup, replace `www.jupyterexcel.com`, `localhost`, and the username `jupyterhub` as appropriate. The environment variables are explained below.
+For your own setup, replace `www.jupyterexcel.com`, `localhost`, and the username `jupyterhub` as appropriate. They are environment variables and will be explained below.
 
 ## Installation
 
