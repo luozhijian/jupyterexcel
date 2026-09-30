@@ -15,6 +15,8 @@ except ImportError:
 from .assets import AssetStore
 from .execution import ExecutionError, SharedKernelExecutor
 from .reload_handler import ReloadNotebookHandler
+from .kernel_pool import KernelPoolExecutor
+from .status_handler import JupyterStatusHandler
 
 
 class ExcelModeHandler(APIHandler):
@@ -97,16 +99,11 @@ def load_jupyter_server_extension(app):
 
     hub_user = os.environ.get('JUPYTERHUB_USER')
     store = AssetStore(app, username=hub_user)
-    executor = SharedKernelExecutor(app.kernel_manager, app.session_manager, app.contents_manager,
+    executor = KernelPoolExecutor(app.kernel_manager, app.session_manager, app.contents_manager,
                                     hub_user or getpass.getuser(), timeout=float(os.environ.get('JUPYTEREXCEL_EXECUTION_TIMEOUT', '30')))
     settings['jupyterexcel_asset_store'] = store
     settings['jupyterexcel_executor'] = executor
-    if os.environ.get('JUPYTEREXCEL_KEEP_KERNEL_READY', '').strip().lower() in {'1', 'true', 'yes', 'on'}:
-        from .kernel_keeper import KernelKeeper
-        keeper = KernelKeeper(executor, app.log)
-        keeper.install()
-        settings['jupyterexcel_kernel_keeper'] = keeper
-        app.log.info('JupyterExcel keep-ready enabled; saved notebooks will initialize automatically.')
+    executor.install(app.log)
 
     base = settings.get('base_url', '/')
 
@@ -119,6 +116,8 @@ def load_jupyter_server_extension(app):
 
     app.log.info(f"JupyterExcel: registering {match_path} for Excel function calls (hub_user={hub_user})")
     app.web_app.add_handlers('.*$', [
+        (url_path_join(base, 'jupyterexcel/api/status'), JupyterStatusHandler,
+         {'executor': executor, 'hub_user': hub_user}),
         (match_path, ExcelModeHandler, {'executor': executor, 'hub_user': hub_user}),
         (url_path_join(base, 'jupyterexcel/api/reload'), ReloadNotebookHandler,
          {'executor': executor, 'store': store, 'hub_user': hub_user}),

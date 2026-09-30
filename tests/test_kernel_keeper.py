@@ -82,7 +82,7 @@ class KeeperTests(unittest.IsolatedAsyncioTestCase):
         executor._initialize.assert_awaited_once_with('new')
 
 
-    async def test_extension_setting_is_opt_in_and_installs_once(self):
+    async def test_pool_starts_once_independent_of_legacy_keeper_flag(self):
         import os
         import tempfile
         from unittest.mock import Mock
@@ -98,11 +98,10 @@ class KeeperTests(unittest.IsolatedAsyncioTestCase):
                 with patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':root,
                                              'JUPYTEREXCEL_KEEP_KERNEL_READY':value}), \
                      patch.object(AssetStore, 'schedule'), \
-                     patch('jupyterexcel.kernel_keeper.KernelKeeper') as keeper:
+                     patch('jupyterexcel.server_extension.KernelPoolExecutor') as pool:
                     load_jupyter_server_extension(app)
                     load_jupyter_server_extension(app)
-                    if value == '1':
-                        keeper.return_value.install.assert_called_once()
-                        self.assertIn('jupyterexcel_kernel_keeper', app.web_app.settings)
-                    else:
-                        keeper.assert_not_called()
+                    pool.assert_called_once()
+                    pool.return_value.install.assert_called_once_with(app.log)
+                    self.assertIs(app.web_app.settings['jupyterexcel_executor'], pool.return_value)
+                    self.assertNotIn('jupyterexcel_kernel_keeper', app.web_app.settings)

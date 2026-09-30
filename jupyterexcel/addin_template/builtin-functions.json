@@ -1,8 +1,256 @@
 {
   "functions": [
-    {"id":"MANIFESTURL","name":"zzManifestUrl","description":"Configured hosted manifest URL; not the original installation location.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
-    {"id":"SERVERURL","name":"zzServerUrl","description":"Configured Jupyter API base URL.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
-    {"id":"ADDINVERSION","name":"zzAddinVersion","description":"JupyterForExcel package version used to generate this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}},
-    {"id":"ASSETVERSION","name":"zzAssetVersion","description":"Generated asset version loaded by this add-in.","parameters":[],"result":{"type":"string","dimensionality":"scalar"}}
+    {
+      "id": "MANIFESTURL",
+      "name": "zzManifestUrl",
+      "description": "Configured hosted manifest URL; not the original installation location.",
+      "parameters": [],
+      "result": {
+        "type": "string",
+        "dimensionality": "scalar"
+      }
+    },
+    {
+      "id": "SERVERURL",
+      "name": "zzServerUrl",
+      "description": "Configured Jupyter API base URL.",
+      "parameters": [],
+      "result": {
+        "type": "string",
+        "dimensionality": "scalar"
+      }
+    },
+    {
+      "id": "ADDINVERSION",
+      "name": "zzAddinVersion",
+      "description": "JupyterForExcel package version used to generate this add-in.",
+      "parameters": [],
+      "result": {
+        "type": "string",
+        "dimensionality": "scalar"
+      }
+    },
+    {
+      "id": "ASSETVERSION",
+      "name": "zzAssetVersion",
+      "description": "Generated asset version loaded by this add-in.",
+      "parameters": [],
+      "result": {
+        "type": "string",
+        "dimensionality": "scalar"
+      }
+    },
+    {
+      "id": "RTTIMER",
+      "name": "RtTimer",
+      "description": "Create a reusable schedule: local Excel start date, frequency in seconds, duration in minutes (1900 date system).",
+      "parameters": [
+        {
+          "name": "start_time",
+          "type": "number",
+          "description": "start time"
+        },
+        {
+          "name": "frequency_in_seconds",
+          "type": "number",
+          "description": "frequency in seconds"
+        },
+        {
+          "name": "duration_in_minutes",
+          "type": "number",
+          "description": "duration in minutes"
+        }
+      ],
+      "result": {
+        "type": "string",
+        "dimensionality": "scalar"
+      }
+    },
+    {
+      "id": "RTNOW",
+      "name": "RtNow",
+      "description": "Current local Excel date/time, refreshed on a schedule (1900 date system).",
+      "parameters": [
+        {
+          "name": "timer",
+          "type": "any",
+          "description": "Refresh seconds (at least 0.001) or a value returned by RtTimer."
+        }
+      ],
+      "result": {
+        "type": "number",
+        "dimensionality": "scalar"
+      },
+      "options": {
+        "stream": true,
+        "requiresStreamAddress": true
+      }
+    },
+    {
+      "id": "RTRAND",
+      "name": "RtRand",
+      "description": "Independent random decimal from 0 inclusive to 1 exclusive on each refresh.",
+      "parameters": [
+        {
+          "name": "timer",
+          "type": "any",
+          "description": "Refresh seconds (at least 0.001) or a value returned by RtTimer."
+        }
+      ],
+      "result": {
+        "type": "number",
+        "dimensionality": "scalar"
+      },
+      "options": {
+        "stream": true,
+        "requiresStreamAddress": true
+      }
+    },
+    {
+      "id": "RTRANDARRAY",
+      "name": "RtRandArray",
+      "description": "Refresh a random spill array; defaults: 1 row, 1 column, min 0, max 1, decimals. Limit 100,000 elements.",
+      "parameters": [
+        {
+          "name": "timer",
+          "type": "any",
+          "description": "Refresh seconds (at least 0.001) or a value returned by RtTimer."
+        },
+        {
+          "name": "rows",
+          "type": "number",
+          "description": "rows",
+          "optional": true
+        },
+        {
+          "name": "columns",
+          "type": "number",
+          "description": "columns",
+          "optional": true
+        },
+        {
+          "name": "min",
+          "type": "number",
+          "description": "min",
+          "optional": true
+        },
+        {
+          "name": "max",
+          "type": "number",
+          "description": "max",
+          "optional": true
+        },
+        {
+          "name": "whole_number",
+          "type": "boolean",
+          "description": "whole number",
+          "optional": true
+        }
+      ],
+      "result": {
+        "type": "number",
+        "dimensionality": "matrix"
+      },
+      "options": {
+        "stream": true,
+        "requiresStreamAddress": true
+      }
+    },
+    {
+      "id": "RTRANDBETWEEN",
+      "name": "RtRandBetween",
+      "description": "Refresh a random integer between the bounds, inclusive.",
+      "parameters": [
+        {
+          "name": "timer",
+          "type": "any",
+          "description": "Refresh seconds (at least 0.001) or a value returned by RtTimer."
+        },
+        {
+          "name": "bottom",
+          "type": "number",
+          "description": "bottom"
+        },
+        {
+          "name": "top",
+          "type": "number",
+          "description": "top"
+        }
+      ],
+      "result": {
+        "type": "number",
+        "dimensionality": "scalar"
+      },
+      "options": {
+        "stream": true,
+        "requiresStreamAddress": true
+      }
+    },
+    {
+      "id": "RTCOUNT",
+      "name": "RtCount",
+      "description": "Start at zero and increment for each delivered refresh; missed ticks are not replayed.",
+      "parameters": [
+        {
+          "name": "timer",
+          "type": "any",
+          "description": "Refresh seconds (at least 0.001) or a value returned by RtTimer."
+        }
+      ],
+      "result": {
+        "type": "number",
+        "dimensionality": "scalar"
+      },
+      "options": {
+        "stream": true,
+        "requiresStreamAddress": true
+      }
+    },
+    {
+      "id": "RTELAPSED",
+      "name": "RtElapsed",
+      "description": "Elapsed seconds since activation or the scheduled start.",
+      "parameters": [
+        {
+          "name": "timer",
+          "type": "any",
+          "description": "Refresh seconds (at least 0.001) or a value returned by RtTimer."
+        }
+      ],
+      "result": {
+        "type": "number",
+        "dimensionality": "scalar"
+      },
+      "options": {
+        "stream": true,
+        "requiresStreamAddress": true
+      }
+    },
+    {
+      "id": "RTCOUNTDOWN",
+      "name": "RtCountdown",
+      "description": "Seconds remaining, ending at zero. Numeric timers require duration_in_seconds; RtTimer supplies its own end.",
+      "parameters": [
+        {
+          "name": "timer",
+          "type": "any",
+          "description": "Refresh seconds (at least 0.001) or a value returned by RtTimer."
+        },
+        {
+          "name": "duration_in_seconds",
+          "type": "number",
+          "description": "duration in seconds",
+          "optional": true
+        }
+      ],
+      "result": {
+        "type": "number",
+        "dimensionality": "scalar"
+      },
+      "options": {
+        "stream": true,
+        "requiresStreamAddress": true
+      }
+    }
   ]
 }

@@ -39,6 +39,17 @@
     if (args.origin && args.origin !== window.location.origin) return;
     let message;
     try { message = JSON.parse(args.message); } catch (_) { return; }
+    if (message.type === 'jupyter-status') {
+      const dialog = accessTokenDialog;
+      if (!dialog) return;
+      let reply;
+      try { reply = {status: await JupyterExcel.getJupyterStatus()}; }
+      catch (error) { reply = {error: error.message || 'Could not read Jupyter Status.'}; }
+      if (accessTokenDialog === dialog) dialog.messageChild(JSON.stringify({
+        type:'jupyter-status-result', requestId:message.requestId, ...reply
+      }), {targetOrigin:window.location.origin});
+      return;
+    }
     if (message.type === 'reload-addin') {
       if (!accessTokenDialog || reloadPending) return;
       reloadPending = true;

@@ -50,18 +50,23 @@ class AssetStore:
 
     async def discover(self):
         found = []
-        async def visit(path):
-            model = await resolved(self.app.contents_manager.get(path, content=True))
-            if model['type'] == 'notebook':
-                found.extend(scan_notebook(model['content'], model['path']))
-            elif model['type'] == 'directory':
-                for child in model.get('content') or []:
-                    if child['type'] in ('directory', 'notebook'):
-                        await visit(child['path'])
-        await visit('')
+        from .discovery import selected_notebooks
+        for path, model in await selected_notebooks(self.app.contents_manager):
+            found.extend(scan_notebook(model['content'], path))
         ids = [f.function_id.casefold() for f in found if f.kind == 'jupyter']
-        if len(set(ids)) != len(ids) or any(not x for x in ids):
-            raise ValueError('Worksheet function IDs must be nonempty and unique.')
+        if any(not x for x in ids):
+            raise ValueError('Worksheet function IDs must be nonempty.')
+
+        if len(set(ids)) != len(ids) :
+            set_seen = set()
+            str_dup = ""
+            for item in ids:
+                if item in set_seen:
+                    if str_dup:
+                        str_dup += ", "
+                    str_dup += item
+                set_seen.add(item)
+            raise ValueError(f'Worksheet function IDs must be unique: {str_dup}')
         actions = [f.action['id'].casefold() for f in found if f.action]
         if len(set(actions)) != len(actions) or set(actions) & set(ids):
             raise ValueError('Function IDs must be unique across worksheet functions and actions.')

@@ -1,0 +1,17 @@
+{
+  "discovery": {
+    "include": [
+      {
+        "folder": ".",
+        "recursive": false
+      }
+    ]
+  },
+  "execution": {
+    "min_kernels": 2,
+    "max_kernels": 4,
+    "scale_up_utilization": 0.8,
+    "utilization_window_seconds": 5,
+    "queue_scale_up_after_seconds": 1
+  }
+}

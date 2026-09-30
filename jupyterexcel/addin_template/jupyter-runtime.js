@@ -310,11 +310,31 @@ async function call(endpoint, suppliedArgs, action = false) {
     throw error;
   }
 }
+async function getJupyterStatus() {
+  const auth = await resolveAuth();
+  if (!hasAccessToken(auth)) throw new Error('Verify and save your access token before requesting Jupyter Status.');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(config.apiBase.replace(/\/$/, '') + '/jupyterexcel/api/status', {
+      headers: {Authorization: 'token ' + auth.token}, credentials:'omit', cache:'no-store', signal:controller.signal
+    });
+    if (response.status === 401 || response.status === 403) throw new Error('Authorization failed. Replace or verify the token and check its kernel-read permission.');
+    if (!response.ok) throw new Error('Jupyter Status is unavailable (HTTP ' + response.status + ').');
+    const body = await response.json();
+    if (!body.ok) throw new Error('Jupyter Status could not be read.');
+    return body.status;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('Jupyter Status timed out. Check the server connection.');
+    if (error instanceof TypeError) throw new Error('Cannot reach Jupyter. Check the server address and allowed add-in origin.');
+    throw error;
+  } finally { clearTimeout(timer); }
+}
 async function callAction(id, args) {
   if (!/^[A-Za-z0-9.]+$/.test(id)) throw new Error('Invalid action ID.');
   return call(config.apiBase.replace(/\/$/, '') + '/Excel/' + encodeURIComponent(id), args, true);
 }
-return {call, callAction, readAuth, saveAuth, clearAuth, validateToken, getAuthStatus,
+return {call, callAction, getJupyterStatus, readAuth, saveAuth, clearAuth, validateToken, getAuthStatus,
   writeLog, readLogs, readLogSettings, writeLogSettings, clearLogs, summarizeArguments,
   flushLogs: () => writeQueue};
 

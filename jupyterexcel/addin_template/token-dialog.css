@@ -26,3 +26,10 @@ footer { display: flex; justify-content: flex-end; margin-top: 18px; border-top:
 .reload-confirmation { margin-top: 16px; padding: 16px; border: 1px solid #888; background: white; border-radius: 3px; }
 .reload-confirmation h2 { margin: 0; font-size: 18px; }
 .confirmation-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.token-actions { flex-wrap: wrap; }
+#jupyter-status-panel { margin-top: 18px; padding: 14px; background: white; border: 1px solid #ccc; }
+#jupyter-status-title { margin-top: 0; font-size: 18px; }
+.kernel-table { overflow-x: auto; }
+.kernel-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.kernel-table th, .kernel-table td { padding: 6px; border-bottom: 1px solid #ddd; text-align: left; overflow-wrap: anywhere; }

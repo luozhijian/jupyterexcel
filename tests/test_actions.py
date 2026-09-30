@@ -135,7 +135,7 @@ class ActionNotebookTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(catalog['actions'][0]['id'],'SUM.GROUP.BY.COLOR')
             self.assertEqual(catalog['actions'][0]['button_text'],'Calculate')
             self.assertEqual({f['id'] for f in json.loads((Path(directory)/'functions.json').read_text())['functions']},
-                             {'MANIFESTURL', 'SERVERURL', 'ADDINVERSION', 'ASSETVERSION'})
+                             {'MANIFESTURL', 'SERVERURL', 'ADDINVERSION', 'ASSETVERSION', 'RTTIMER', 'RTNOW', 'RTRAND', 'RTRANDARRAY', 'RTRANDBETWEEN', 'RTCOUNT', 'RTELAPSED', 'RTCOUNTDOWN'})
             manifest=ET.parse(Path(directory)/'manifest.xml')
             panes=[e for e in manifest.iter() if e.attrib.get('resid')=='Taskpane.Url']
             self.assertTrue(panes)

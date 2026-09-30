@@ -16,6 +16,7 @@ authors = [
 dependencies = [
     "jupyter-server>=2,<3",
     "jupyter-client>=8,<9",
+    "ipykernel>=6,<8",
     "tornado>=6.3",
 ]
 

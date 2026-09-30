@@ -90,6 +90,9 @@ def _function_from_ast(node, decorator, notebook):
         excel_name = keywords.get("name")
         if excel_name is None:
             excel_name = positional[0] if positional else node.name
+#            if not excel_name: 
+#                print (f"{notebook}: {node.name}: @jupyter_function should specify a name; using {excel_name!r}.")
+#                print( node)
         description = keywords.get("description") or ast.get_docstring(node) or node.name
     arguments = node.args.posonlyargs + node.args.args
     if kind == 'jupyter_function' and call:

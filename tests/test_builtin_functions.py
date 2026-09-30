@@ -19,7 +19,7 @@ class BuiltinTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(await store.generate())
             metadata = json.loads(store.resolve('functions.json').read_text())
             self.assertEqual({f['id'] for f in metadata['functions']},
-                             {'MANIFESTURL', 'SERVERURL', 'ADDINVERSION', 'ASSETVERSION'})
+                             {'MANIFESTURL', 'SERVERURL', 'ADDINVERSION', 'ASSETVERSION', 'RTTIMER', 'RTNOW', 'RTRAND', 'RTRANDARRAY', 'RTRANDBETWEEN', 'RTCOUNT', 'RTELAPSED', 'RTCOUNTDOWN'})
             for name in ('functions.js', 'jupyter-config.js'):
                 script = store.resolve(name).read_text()
                 self.assertIn('https://example.com/addin/alice/manifest.xml', script)

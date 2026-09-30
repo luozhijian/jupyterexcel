@@ -4,6 +4,7 @@ import ast
 import inspect
 import json
 import uuid
+from .kernel_connection import KernelConnection
 
 
 class ExecutionError(Exception):
@@ -59,7 +60,8 @@ def invoke_action(function_id, inputs):
 
 
 class KernelExecutor:
-    def __init__(self, manager, timeout=30):
+    def __init__(self, manager, timeout=30, connection=None):
+        self.connection = connection
         self.manager, self.timeout = manager, timeout
         self.reserved = set()
         self.lock = asyncio.Lock()
@@ -77,13 +79,11 @@ class KernelExecutor:
                 raise ExecutionError(503, 'kernel_busy', 'The selected kernels are handling another Excel request.')
             kernel_id = selected['id']
             self.reserved.add(kernel_id)
-        client = None
+        connection = self.connection or KernelConnection()
         try:
             kernel = self.manager.get_kernel(kernel_id)
-            from jupyter_client import AsyncKernelClient
-            client = AsyncKernelClient()
-            client.load_connection_info(kernel.get_connection_info())
-            client.start_channels()
+            client = connection.open(kernel)
+            await connection.wait_for_ready(self.timeout)
             # Literal JSON decoding prevents input strings from becoming Python code.
             expression = "__import__('jupyterexcel.execution', fromlist=['invoke_export']).invoke_export(%r, __import__('json').loads(%r))" % (function_id, json.dumps(inputs, allow_nan=False))
             if action is False:
@@ -105,8 +105,8 @@ class KernelExecutor:
         except asyncio.TimeoutError:
             raise ExecutionError(504, 'timeout', 'Execution timed out; the kernel may still be running the function.') from None
         finally:
-            if client is not None:
-                client.stop_channels()
+            if self.connection is None:
+                connection.close()
             self.reserved.discard(kernel_id)
 
 
@@ -166,38 +166,32 @@ class SharedKernelExecutor:
         notebooks = []
         seen = set()
 
-        async def visit(path):
-            model = await resolved(self.contents.get(path, content=True))
-            if model['type'] == 'directory':
-                for child in sorted(model.get('content') or [], key=lambda item: item['path']):
-                    if child['type'] in {'directory', 'notebook'}:
-                        await visit(child['path'])
-            elif model['type'] == 'notebook':
-                functions = [
-                    function for function in scan_notebook(model['content'], path)
-                    if function.kind == 'jupyter' or function.action
-                ]
-                for function in functions:
-                    key = function.function_id
-                    if key in seen:
-                        raise ExecutionError(
-                            500,
-                            'duplicate_function',
-                            'Duplicate exported function: ' + function.function_id,
-                        )
-                    seen.add(key)
-                if functions:
-                    cells = []
-                    for cell_number, cell in enumerate(model['content'].get('cells', []), 1):
-                        if cell.get('cell_type') == 'code':
-                            source = cell.get('source', '')
-                            cells.append((
-                                cell_number,
-                                ''.join(source) if isinstance(source, list) else source,
-                            ))
-                    notebooks.append((path, cells))
+        from .discovery import selected_notebooks
+        for path, model in await selected_notebooks(self.contents):
+            functions = [
+                function for function in scan_notebook(model['content'], path)
+                if function.kind == 'jupyter' or function.action
+            ]
+            for function in functions:
+                key = function.function_id
+                if key in seen:
+                    raise ExecutionError(
+                        500,
+                        'duplicate_function',
+                        'Duplicate exported function: ' + function.function_id,
+                    )
+                seen.add(key)
+            if functions:
+                cells = []
+                for cell_number, cell in enumerate(model['content'].get('cells', []), 1):
+                    if cell.get('cell_type') == 'code':
+                        source = cell.get('source', '')
+                        cells.append((
+                            cell_number,
+                            ''.join(source) if isinstance(source, list) else source,
+                        ))
+                notebooks.append((path, cells))
 
-        await visit('')
         return notebooks
 
     async def reload_notebook(self, path):
@@ -229,12 +223,10 @@ class SharedKernelExecutor:
             self.lock.release()
 
     async def _initialize(self, kernel_id, reload_path=None):
-        from jupyter_client import AsyncKernelClient
-
         kernel = self.manager.get_kernel(kernel_id)
-        client = AsyncKernelClient(parent=kernel)
-        client.load_connection_info(kernel.get_connection_info())
-        client.start_channels()
+        owned = getattr(self, 'connection', None) is None
+        connection = KernelConnection() if owned else self.connection
+        client = None
 
         async def run(code):
             message_id = client.execute(code, silent=True, store_history=False, allow_stdin=False)
@@ -253,7 +245,8 @@ class SharedKernelExecutor:
                     return
 
         try:
-            await client.wait_for_ready(timeout=self.timeout)
+            client = connection.open(kernel)
+            await connection.wait_for_ready(self.timeout)
             notebooks = await self._notebooks()
             selected = []
             if reload_path is not None:
@@ -296,6 +289,20 @@ if _jupyterexcel_was_initialized:
                 raise RuntimeError('Notebook reload failed: %%s, cell %%s; earlier cells may have changed kernel state' %% (_jupyterexcel_path, _jupyterexcel_index))
 """ % json.dumps(selected)
             await asyncio.wait_for(run(code), self.timeout)
+            if owned:
+                # A shell reply can precede the manager's IOPub idle update.
+                # Old heartbeat shutdown hid this race by delaying every call.
+                async def wait_idle():
+                    stable = 0
+                    while stable < 2:
+                        models = await resolved(self.manager.list_kernels())
+                        model = next((m for m in models if m['id'] == kernel_id), None)
+                        if model is None:
+                            raise ExecutionError(503, 'kernel_lost', 'Kernel stopped during initialization.')
+                        stable = stable + 1 if model.get('execution_state') != 'busy' else 0
+                        if stable < 2:
+                            await asyncio.sleep(0.05)
+                await asyncio.wait_for(wait_idle(), self.timeout)
         except asyncio.TimeoutError:
             raise ExecutionError(
                 504,
@@ -303,7 +310,8 @@ if _jupyterexcel_was_initialized:
                 'Notebook initialization timed out; it may still be running.',
             ) from None
         finally:
-            client.stop_channels()
+            if owned:
+                connection.close()
 
     async def execute(self, function_id, inputs, idle_only=False, action=None):
         async with self.lock:

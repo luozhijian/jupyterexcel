@@ -99,12 +99,13 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
         cm.register_post_save_hook = hooks.append
         routes = []
         app = SimpleNamespace(contents_manager=cm, log=logging.getLogger('test'), kernel_manager=object(), session_manager=object(), web_app=SimpleNamespace(settings={'base_url': '/'}, add_handlers=lambda host, handlers: routes.extend(handlers)))
-        with tempfile.TemporaryDirectory() as test_data, patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':test_data}), patch.object(AssetStore, 'schedule') as schedule:
+        with tempfile.TemporaryDirectory() as test_data, patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':test_data}), patch.object(AssetStore, 'schedule') as schedule, patch('jupyterexcel.kernel_pool.KernelPoolExecutor.install'):
             load_jupyter_server_extension(app)
             self.assertEqual(len(hooks), 2)
-            self.assertEqual(len(routes), 2)
-            self.assertIn('/jupyterexcel/api/reload', routes[1][0])
-            self.assertIn('/Excel/', routes[0][0])
+            self.assertEqual(len(routes), 3)
+            self.assertIn('/jupyterexcel/api/reload', routes[2][0])
+            self.assertIn('/jupyterexcel/api/status', routes[0][0])
+            self.assertIn('/Excel/', routes[1][0])
             hooks[1](model={'type':'notebook'})
             self.assertEqual(schedule.call_count, 2)
             load_jupyter_server_extension(app)

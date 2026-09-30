@@ -3,9 +3,9 @@
 ### Office.js add-in generation
 
 When the JupyterExcel server extension starts, it scans every notebook visible
-to the current Jupyter user. Functions decorated with `jupyter_function` are
+to the current Jupyter user. Functions decorated with [jupyter_function](https://jupyterexcel.com/excel-addin/jupyter_function.html) are
 published as Excel custom functions; functions decorated with
-`ribbon_function` remain separate and are shown in the JupyterExcel task pane. The generated JavaScript files are referenced by the Excel web add-in’s `manifest.xml`.
+[ribbon_function](https://jupyterexcel.com/excel-addin/ribbon_function.html) remain separate and are shown in the JupyterExcel task pane. The generated JavaScript files are referenced by the Excel web add-in’s `manifest.xml`.
 
 ```python
 from jupyterexcel import jupyter_function, ribbon_function
@@ -38,6 +38,46 @@ In the Linux setup, these two types of URLs appear to belong to one website, but
 The Windows setup described here uses standalone, single-user JupyterLab, so the URL does not need the `/user/jupyterhub` segment. For example, the endpoint becomes https://www.jupyterexcel.com/Excel/SUM. This setup uses two sites: IIS serves the add-in files, such as https://localhost/functions.js or https://localhost/manifest.xml, and JupyterLab handles API requests at https://localhost:8888/. The URL https://localhost/functions.js does not need the **excel-addin** path segment because IIS serves these files as a separate website. In the Linux Nginx example, the **excel-addin** path distinguishes static-file requests from requests forwarded to JupyterHub. To allow the Excel add-in’s JavaScript runtime, which downloads and runs `functions.js` from https://localhost, to call the Jupyter service at https://localhost:8888/Excel, configure CORS.
 
 For your own setup, replace `www.jupyterexcel.com`, `localhost`, and the username `jupyterhub` as appropriate. These values are configured through the environment variables explained below.
+
+## Prerequisites
+
+JupyterExcel requires **Python 3.9 or later**. Installing the package with pip
+also installs these runtime dependencies automatically:
+
+| Package | Required version |
+| --- | --- |
+| `jupyter-server` | `>=2,<3` |
+| `jupyter-client` | `>=8,<9` |
+| `ipykernel` | `>=6,<8` |
+| `tornado` | `>=6.3` |
+
+For a working deployment, you also need:
+
+- A Python kernel registered as `python3`, which JupyterExcel currently uses.
+  Check it with `jupyter kernelspec list`.
+- JupyterLab 4 if you want to edit notebooks in JupyterLab and use the bundled
+  JupyterExcel toolbar extension. Install it separately with
+  `python -m pip install "jupyterlab>=4,<5"`.
+- JupyterHub only for a multi-user deployment; it is not required for standalone
+  JupyterLab. Install JupyterExcel in each user's server environment.
+- Any libraries imported by your notebooks, installed in the environment used
+  by the `python3` kernel. Streamlit and pandas are not required by JupyterExcel
+  itself.
+- Microsoft Excel with support for Office.js custom functions and SharedRuntime
+  1.1, and permission to load the add-in manifest.
+- An HTTPS static web server, such as IIS or Nginx, to serve the generated add-in
+  files, with a certificate trusted by the computer running Excel. Configure
+  `JUPYTEREXCEL_ASSET_DIR` and `JUPYTEREXCEL_ASSET_URL` as described below, and
+  make the Jupyter API reachable from Excel over HTTPS.
+
+Install JupyterExcel in the Jupyter server environment. If your `python3` kernel
+uses a separate virtual environment, install JupyterExcel there too so notebook
+imports of its decorators work.
+
+The `build` and `twine` packages are release tools, not runtime dependencies.
+Install them in a separate release environment when building or publishing the
+package. Node.js is needed to rebuild the frontend, but not to install the
+Python package with its prebuilt JupyterLab extension.
 
 ## Installation
 
@@ -293,6 +333,9 @@ For example, `def underscore_join(...)` becomes `Jupyter.underscore_join(...)`.
 are rejected as duplicates because Excel names are case-insensitive. Generated
 IDs and names preserve spelling; Excel may display capitalization differently.
 Unsupported characters are rejected instead of silently renamed.
+
+Sample jupyter_function: https://jupyterexcel.com/excel-addin/jupyter_function.html
+Sample ribbon_function: https://jupyterexcel.com/excel-addin/ribbon_function.html
 
 ## Formula namespace
 

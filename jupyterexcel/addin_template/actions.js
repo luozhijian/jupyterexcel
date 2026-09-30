@@ -146,10 +146,9 @@
   const $ = id => document.getElementById(id);
   let actions = [], controls = [], busy = false, result = null, targets = {}, outputTarget = null;
   let revision = 0, resultRevision = -1, writing = false;
-  const inputMonitor = createInputMonitor(Excel,
-    () => Office.context.requirements.isSetSupported('ExcelApi', '1.9'), stale, () => writing);
+  let inputMonitor;
   async function stopMonitoring() {
-    try { await inputMonitor.stop(); }
+    try { await inputMonitor?.stop(); }
     catch (error) { console.warn('Could not remove action input event handlers:', error); }
   }
   function inputsChanged() {
@@ -286,7 +285,11 @@
       $('action-select').replaceChildren();
       for (const item of actions) $('action-select').add(new Option(item.label, item.id));
       selectAction();
-    } catch (error) { status(error.message); }
+      globalThis.JupyterExcel?.writeLog?.('INFO', 'Actions', 'catalog.loaded', 'Loaded ' + actions.length + ' actions.');
+    } catch (error) {
+      status(error.message);
+      globalThis.JupyterExcel?.writeLog?.('ERROR', 'Actions', 'catalog.load.failed', error.message);
+    }
     finally { busy = false; updateButtons(); }
   }
   function normalizeColor(color) {
@@ -489,6 +492,10 @@
     });
   }
   Office.onReady(async () => {
+    try {
+    inputMonitor = createInputMonitor(globalThis.Excel,
+      () => Office.context.requirements.isSetSupported('ExcelApi', '1.9'), stale, () => writing);
+    globalThis.JupyterExcel?.writeLog?.('INFO', 'Actions', 'startup.ready', 'Initializing the action list.');
     $('action-details').ontoggle = () => { if (!$('action-details').open) stopSelection(); };
     $('action-select').onchange = selectAction;
     $('action-run').onclick = run;
@@ -499,13 +506,22 @@
     document.addEventListener('click', event => {
       if (selectionField && event.target !== selectionField.input) stopSelection();
     });
-    try {
-      await Excel.run(async context => {
-        context.workbook.onSelectionChanged.add(captureSelection);
-        await context.sync();
-      });
-    } catch (_) { status('Automatic range selection is unavailable in this Excel host.'); }
+    // Catalog loading must not wait for the Excel request queue or event setup.
     await refresh();
-
+    void (async () => {
+      try {
+        await Excel.run(async context => {
+          context.workbook.onSelectionChanged.add(captureSelection);
+          await context.sync();
+        });
+      } catch (error) {
+        globalThis.JupyterExcel?.writeLog?.('WARN', 'Actions', 'selection.setup.failed',
+          error.message || 'Automatic range selection is unavailable in this Excel host.');
+      }
+    })();
+    } catch (error) {
+      globalThis.JupyterExcel?.writeLog?.('ERROR', 'Actions', 'startup.failed', error.message);
+      status('Could not initialize Notebook Actions: ' + error.message);
+    }
   });
 })();

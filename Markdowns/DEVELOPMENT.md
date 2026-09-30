@@ -1,5 +1,13 @@
 # JupyterExcel Development
 
+## Managed kernel pool
+
+The active server uses `KernelPoolExecutor`: 2 minimum workers, 4 maximum, a
+5-second busy-time window, and a 1-second queue scale-up trigger. See
+[KERNEL_POOL.md](KERNEL_POOL.md) for settings, reload behavior, and the
+Jupyter Status panel in the token dialog. Historical single-kernel descriptions
+below apply to the retained legacy executor, not the active server pool.
+
 ## Notebook Actions
 
 See [NOTEBOOK_ACTIONS.md](NOTEBOOK_ACTIONS.md) for the reusable task pane and Python SumGroupByColor example. Client checks: node --test tests/test_actions_client.cjs tests/test_client_runtime.cjs tests/test_dialog_command.cjs. Live Excel verification is required for range selection, fill reads, dialogs, and writes.

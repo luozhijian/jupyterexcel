@@ -1,5 +1,13 @@
 # JupyterExcel Architecture
 
+## Managed kernel pool
+
+The active server uses `KernelPoolExecutor`: 2 minimum workers, 4 maximum, a
+5-second busy-time window, and a 1-second queue scale-up trigger. See
+[KERNEL_POOL.md](KERNEL_POOL.md) for settings, reload behavior, and the
+Jupyter Status panel in the token dialog. Historical single-kernel descriptions
+below apply to the retained legacy executor, not the active server pool.
+
 ## Separate task-pane views
 
 The Debug Log and Actions ribbon commands select separate views. Their markup lives in addin_template/debug-log.html and addin_template/notebook-actions.html. Asset generation embeds both into taskpane.html, preserving one shared Office runtime. Hidden views retain their state when switching; opening Debug Log closes action range selection.
