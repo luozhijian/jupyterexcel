@@ -1,38 +1,30 @@
-# Project discovery settings
+# Notebook discovery configuration
 
-Place `jupyterexcel-config.json` in the Jupyter server's ContentsManager root
-(the top of the JupyterLab file browser, not necessarily the package directory).
-The repository includes a configuration selecting only root-level notebooks:
+The server loads one JSON configuration at startup; see
+[CONFIGURATION.md](CONFIGURATION.md) for file selection and required settings.
+Its `discovery` section selects folders relative to the Jupyter notebook root,
+even when the selected configuration file is in a central directory.
 
 ```json
-{
-  "discovery": {
-    "include": [
-      {"folder": ".", "recursive": false}
-    ]
-  }
+"discovery": {
+  "include": [
+    {"folder": ".", "recursive": false},
+    {"folder": "shared", "recursive": true}
+  ]
 }
 ```
 
-Add `{"folder": "ExcelFunctions", "recursive": false}` to include notebooks
-directly in that folder. Set recursive to true to include its entire subtree.
-Paths use `/` and are relative to the server root. Absolute paths, `..`, and
-wildcards are rejected. Recursive defaults to false for each explicit entry.
-Overlapping entries are deduplicated; notebook execution order is path order.
-An empty include list selects no notebooks (JavaScript built-ins remain).
+The default selects only root-level notebooks. Overlapping includes are
+deduplicated and notebook execution order is path order. An empty include list
+selects no notebooks; JavaScript built-ins remain available. Invalid folder
+paths and unavailable included folders fail discovery without falling back.
 
-If the file, discovery section, or include setting is absent, the previous
-recursive discovery behavior remains. Invalid JSON/settings and unavailable
-included folders fail discovery instead of falling back to scanning everything.
-Other top-level sections are allowed for future settings; unknown discovery
-keys are rejected to catch typos.
+Asset discovery and managed kernels use the same startup configuration.
+Restart Jupyter after changing JSON. Saving notebooks regenerates assets;
+Save-and-reload rebuilds the worker notebook snapshot using the existing
+configuration. This filter is not an execution permission boundary.
 
-Asset discovery and managed-kernel initialization share this selection. Saving
-through Jupyter triggers the existing asset-generation hook. For externally
-edited configuration, restart JupyterLab/server to regenerate assets. Restart
-the managed kernel after changing selection: already executed definitions are
-not removed from a running kernel. The pooled executor requires a notebook to be included before Save-and-reload;
-that action rebuilds all managed workers from the new selected snapshot.
-This is an automatic discovery filter, not an execution permission boundary.
-
-Your existing `jupyterexcel.json` server-extension enablement file is separate.
+Low-level discovery utilities without a loaded server retain their optional
+project-file behavior for standalone tooling. The server always requires a
+validated full configuration. `jupyterexcel.json`, used to enable the Jupyter
+server extension, is a separate file.

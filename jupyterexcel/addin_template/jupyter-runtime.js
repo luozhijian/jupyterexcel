@@ -310,20 +310,27 @@ async function call(endpoint, suppliedArgs, action = false) {
     throw error;
   }
 }
+let statusRequestSequence = 0;
+const statusRequestSession = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
 async function getJupyterStatus() {
   const auth = await resolveAuth();
   if (!hasAccessToken(auth)) throw new Error('Verify and save your access token before requesting Jupyter Status.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(config.apiBase.replace(/\/$/, '') + '/jupyterexcel/api/status', {
+    const requestId = statusRequestSession + '-' + (++statusRequestSequence);
+    const endpoint = new URL(config.apiBase.replace(/\/$/, '') + '/jupyterexcel/api/status');
+    endpoint.searchParams.set('request_id', requestId);
+    const response = await fetch(endpoint.href, {
       headers: {Authorization: 'token ' + auth.token}, credentials:'omit', cache:'no-store', signal:controller.signal
     });
     if (response.status === 401 || response.status === 403) throw new Error('Authorization failed. Replace or verify the token and check its kernel-read permission.');
     if (!response.ok) throw new Error('Jupyter Status is unavailable (HTTP ' + response.status + ').');
     const body = await response.json();
     if (!body.ok) throw new Error('Jupyter Status could not be read.');
-    return body.status;
+    if (body.request_id !== requestId) throw new Error('Status freshness could not be verified. Update/restart Jupyter and refresh the add-in.');
+    if (!body.sampled_at || !Number.isFinite(Date.parse(body.sampled_at))) throw new Error('The server returned an invalid status timestamp.');
+    return {...body.status, configuration: body.configuration, sampled_at: body.sampled_at};
   } catch (error) {
     if (error.name === 'AbortError') throw new Error('Jupyter Status timed out. Check the server connection.');
     if (error instanceof TypeError) throw new Error('Cannot reach Jupyter. Check the server address and allowed add-in origin.');

@@ -1,4 +1,5 @@
 """Read-only pool telemetry, independent of kernel execution."""
+from datetime import datetime, timezone
 from tornado import web
 try:
     from jupyter_server.base.handlers import APIHandler
@@ -24,4 +25,11 @@ class JupyterStatusHandler(APIHandler):
                 self.set_status(403)
                 self.finish({'ok': False, 'error': {'message': 'Use a token for your own Jupyter server.'}})
                 return
-        self.finish({'ok': True, 'status': self.executor.status()})
+        from .config import config_report
+        response = {'ok': True, 'status': self.executor.status(),
+                    'request_id': self.get_query_argument('request_id', ''),
+                    'sampled_at': datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')}
+        snapshot = self.settings.get('jupyterexcel_config')
+        if snapshot is not None:
+            response['configuration'] = config_report(snapshot)
+        self.finish(response)

@@ -44,6 +44,15 @@ def _includes(config):
 
 async def read_project_config(contents):
     root = await _resolved(contents.get('', content=True))
+    snapshot = getattr(contents, '_jupyterexcel_config', None)
+    if snapshot is not None:
+        import copy
+        return copy.deepcopy(snapshot['config']), root
+    # Standalone discovery tools can also select the central file.
+    import os
+    from .config import CONFIG_ENV, load_config
+    if CONFIG_ENV in os.environ:
+        return load_config()['config'], root
     config = {}
     if any(child.get('path') == CONFIG_NAME for child in root.get('content') or []):
         model = await _resolved(contents.get(CONFIG_NAME, content=True))

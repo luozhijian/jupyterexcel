@@ -6,13 +6,15 @@ Python globals and in-memory data are independent between kernels. Stateful
 routing is not implemented yet. Notebook initialization runs once per worker,
 so initialization side effects run multiple times. Idle workers retain memory.
 
-Settings are read from `jupyterexcel-config.json` in the Jupyter root at server
-startup. Keep the `discovery` section alongside this `execution` section:
+Settings are read from the selected JSON at server startup (see
+[CONFIGURATION.md](CONFIGURATION.md)). The following is only the execution
+section; the full configuration also requires server and asset settings:
 
 ```json
 {
   "execution": {
-    "min_kernels": 2,
+    "min_kernels": 1,
+    "timeout_seconds": 30,
     "max_kernels": 4,
     "scale_up_utilization": 0.8,
     "utilization_window_seconds": 5,
@@ -27,8 +29,8 @@ startup. Keep the `discovery` section alongside this `execution` section:
 
 These are also the defaults when execution settings are absent. Restart the
 server to apply changes. The pool proactively prepares its minimum workers;
-the former opt-in `JUPYTEREXCEL_KEEP_KERNEL_READY` flag is no longer needed.
-`JUPYTEREXCEL_EXECUTION_TIMEOUT` still controls each call's response timeout.
+there is no separate keep-ready flag.
+`execution.timeout_seconds` still controls each call's response timeout.
 
 Every 0.1 seconds the scheduler checks demand. It starts at most one kernel at
 a time, up to the maximum. Expansion occurs when average occupied time across

@@ -36,3 +36,27 @@ class StatusTests(AsyncHTTPTestCase):
         self.authorizer.is_authorized.return_value = False
         self.assertEqual(self.fetch('/user/alice/jupyterexcel/api/status', headers={'Authorization':'token alice'}).code, 403)
         self.status.assert_not_called()
+
+    def test_configuration_snapshot_is_only_returned_to_owner(self):
+        snapshot = {'path': '/missing/settings.json', 'source': 'test',
+                    'sha256': 'old', 'config': {'addin': {'namespace': 'Loaded'}}}
+        self._app.settings['jupyterexcel_config'] = snapshot
+        response = self.fetch('/user/alice/jupyterexcel/api/status', headers={'Authorization': 'token alice'})
+        report = json.loads(response.body)['configuration']
+        self.assertEqual(report['config']['addin']['namespace'], 'Loaded')
+        self.assertTrue(report['restart_required'])
+        response = self.fetch('/user/alice/jupyterexcel/api/status', headers={'Authorization': 'token bob'})
+        self.assertEqual(response.code, 403)
+        self.assertNotIn(b'Loaded', response.body)
+
+    def test_status_echoes_each_request_and_returns_new_counts(self):
+        from datetime import datetime
+        for request_id, count in [('first', 4), ('second', 5)]:
+            self.status.return_value = {'kernels': [{'completed_calls': count}]}
+            response = self.fetch('/user/alice/jupyterexcel/api/status?request_id=' + request_id,
+                                  headers={'Authorization': 'token alice'})
+            body = json.loads(response.body)
+            self.assertEqual(body['request_id'], request_id)
+            self.assertRegex(body['sampled_at'], r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$')
+            self.assertIsNotNone(datetime.fromisoformat(body['sampled_at'].replace('Z', '+00:00')).tzinfo)
+            self.assertEqual(body['status']['kernels'][0]['completed_calls'], count)

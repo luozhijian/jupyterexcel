@@ -88,16 +88,15 @@ class KeeperTests(unittest.IsolatedAsyncioTestCase):
         from unittest.mock import Mock
         from jupyterexcel.assets import AssetStore
         from jupyterexcel.server_extension import load_jupyter_server_extension
-        for value in ('', '0', '1'):
+        for value in (1, 2):
             with self.subTest(value=value), tempfile.TemporaryDirectory() as root:
                 app = SimpleNamespace(
                     log=logging.getLogger('test'),
                     kernel_manager=object(), session_manager=object(),
-                    contents_manager=SimpleNamespace(register_post_save_hook=Mock()),
+                    contents_manager=SimpleNamespace(root_dir=root, register_post_save_hook=Mock()),
                     web_app=SimpleNamespace(settings={}, add_handlers=Mock()))
-                with patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':root,
-                                             'JUPYTEREXCEL_KEEP_KERNEL_READY':value}), \
-                     patch.object(AssetStore, 'schedule'), \
+                with patch.dict(os.environ, {}), \
+                     patch('jupyterexcel.config.load_config', return_value={'path': 'test.json', 'source': 'test', 'config': {'assets': {'directory': str(root)}, 'execution': {'timeout_seconds': 30}}}), patch.object(AssetStore, 'schedule'), \
                      patch('jupyterexcel.server_extension.KernelPoolExecutor') as pool:
                     load_jupyter_server_extension(app)
                     load_jupyter_server_extension(app)

@@ -1,35 +1,19 @@
 """Per-server adaptive pool; workers share code, never Python memory."""
 import asyncio
 from collections import deque
-import math
 import logging
 import time
 from types import SimpleNamespace
 
-from .execution import ExecutionError, KernelExecutor, SharedKernelExecutor, resolved
+from .execution import ExecutionError, KernelExecutor, SharedKernelExecutor, resolved, kernel_states
 from .discovery import read_project_config
 from .kernel_connection import KernelConnection
 
-DEFAULTS = dict(min_kernels=2, max_kernels=4, scale_up_utilization=0.8,
-                utilization_window_seconds=5, queue_scale_up_after_seconds=1,
-                queue_timeout_seconds=30, startup_timeout_seconds=60,
-                max_queue_size=1000, scale_up_cooldown_seconds=1)
+from .config import EXECUTION_DEFAULTS as DEFAULTS, validate_execution
 
 
 def execution_settings(config):
-    supplied = config.get('execution', {})
-    if not isinstance(supplied, dict) or set(supplied) - DEFAULTS.keys():
-        raise ValueError('jupyterexcel-config.json: invalid execution settings.')
-    settings = dict(DEFAULTS, **supplied)
-    for key, value in settings.items():
-        if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or value <= 0:
-            raise ValueError('execution.' + key + ' must be a positive finite number.')
-    for key in ('min_kernels', 'max_kernels', 'max_queue_size'):
-        if not isinstance(settings[key], int):
-            raise ValueError('execution.' + key + ' must be an integer.')
-    if settings['min_kernels'] > settings['max_kernels'] or settings['scale_up_utilization'] > 1:
-        raise ValueError('Invalid kernel limits or utilization threshold.')
-    return settings
+    return validate_execution(config.get('execution', {}))
 
 
 class KernelPoolExecutor:
@@ -57,6 +41,8 @@ class KernelPoolExecutor:
                 return
             config, _ = await read_project_config(self.contents)
             self.settings = execution_settings(config)
+            if getattr(self.contents, '_jupyterexcel_config', None) is not None or 'timeout_seconds' in config.get('execution', {}):
+                self.timeout = self.settings['timeout_seconds']
             self.snapshot = await SharedKernelExecutor(self.manager, self.sessions, self.contents, self.username)._notebooks()
             self.monitor = asyncio.create_task(self._maintain())
 
@@ -156,7 +142,7 @@ class KernelPoolExecutor:
                 if session and session.get('id') and hasattr(self.sessions, 'delete_session'):
                     await resolved(self.sessions.delete_session(session['id']))
                 else:
-                    models = await resolved(self.manager.list_kernels())
+                    models = await kernel_states(self.manager)
                     if any(m['id'] == w.kernel_id for m in models):
                         await resolved(self.manager.shutdown_kernel(w.kernel_id, now=True))
         except Exception:
@@ -169,7 +155,7 @@ class KernelPoolExecutor:
     async def _wait_idle(self, w):
         stable = 0
         while stable < 2:
-            models = await resolved(self.manager.list_kernels())
+            models = await kernel_states(self.manager)
             model = next((m for m in models if m['id'] == w.kernel_id), None)
             if model is None:
                 raise ExecutionError(503, 'kernel_lost', 'The managed kernel stopped.')
@@ -202,7 +188,7 @@ class KernelPoolExecutor:
                 request.result.set_exception(ExecutionError(503, 'queue_timeout', 'Timed out waiting for an available Jupyter kernel.'))
         if self.reloading:
             return
-        models = {m['id']: m for m in await resolved(self.manager.list_kernels())}
+        models = {m['id']: m for m in await kernel_states(self.manager)}
         if self.reloading or self.closed:
             return
         for w in list(self.workers):

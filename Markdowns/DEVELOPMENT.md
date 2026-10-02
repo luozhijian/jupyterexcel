@@ -2,7 +2,7 @@
 
 ## Managed kernel pool
 
-The active server uses `KernelPoolExecutor`: 2 minimum workers, 4 maximum, a
+The active server uses `KernelPoolExecutor`: 1 minimum worker, 4 maximum, a
 5-second busy-time window, and a 1-second queue scale-up trigger. See
 [KERNEL_POOL.md](KERNEL_POOL.md) for settings, reload behavior, and the
 Jupyter Status panel in the token dialog. Historical single-kernel descriptions
@@ -61,7 +61,7 @@ Single-user mode selects the first kernel. Hub mode requires a validated token
 header and the authenticated user's own server, then selects its first idle,
 unreserved kernel. Another user's server is rejected, including delegated access.
 A missing or busy kernel returns 503. The timeout defaults to 30 seconds; set
-`JUPYTEREXCEL_EXECUTION_TIMEOUT` to override it. A timeout does not interrupt the
+`execution.timeout_seconds` to override it. A timeout does not interrupt the
 kernel, since interruption could affect notebook work.
 
 ### Generated assets and templates
@@ -109,21 +109,13 @@ published root files. Configure suitable cache revalidation for the manifest,
 HTML, and functions.json on your web server.
 
 Public asset downloads require no token; calls back to Jupyter still require
-authentication. `JUPYTEREXCEL_PUBLIC_URL` still controls the Jupyter API address,
+authentication. `server.public_url` still controls the Jupyter API address,
 not the static website. Cross-origin API access remains subject to Jupyter's CORS
 configuration; the extension does not disable authentication or CORS.
 
 ## Public add-in URL
 
-If Excel should use the Jupyter server's own origin, start Jupyter with HTTPS and let JupyterExcel derive the URL.
-
-When a reverse proxy, fixed development port, or other public origin is required, set:
-
-```powershell
-$env:JUPYTEREXCEL_PUBLIC_URL = "https://localhost:3000"
-```
-
-Then start Jupyter in the same terminal. The value must be an origin and optional base path reachable from the machine running Excel. Do not include authentication tokens.
+Set `server.public_url` in the selected JSON to the HTTPS Jupyter API base URL reachable from Excel.
 
 ## Creating a worksheet function
 
@@ -226,7 +218,7 @@ If Office resources do not load:
 
 - Confirm every manifest URL is reachable from the Excel computer.
 - Confirm the HTTPS certificate is trusted.
-- Confirm `JUPYTEREXCEL_PUBLIC_URL` matches the proxy-facing origin.
+- Confirm `server.public_url` matches the proxy-facing origin.
 - Check Jupyter authentication without placing credentials in generated files.
 
 ## Ribbon development
@@ -245,7 +237,7 @@ JavaScript remains editable as JavaScript. Custom template directories must
 provide both files.
 
 The packaged manifest template uses `{{ASSET_BASE_URL}}` for public asset URLs.
-Generation resolves it from `JUPYTEREXCEL_ASSET_URL`, appending the Hub username
+Generation resolves it from `assets.url`, appending the Hub username
 when present. Manifest resource filenames remain stable, so Store deployment does
 not require a manifest change for notebook updates.
 Existing `setup.py` package-data patterns include these templates in pip packages.
@@ -318,28 +310,7 @@ function signature.
 
 ## Override the asset output directory
 
-Set the variable in the same PowerShell session before launching Jupyter:
-
-```powershell
-$env:JUPYTEREXCEL_ASSET_DIR = "C:\Websites\JupyterExcel\excel-addin"
-jupyter lab
-```
-
-The value must be an absolute filesystem directory, not a URL. Standalone Jupyter
-writes directly there; Hub appends its username subdirectory. When the variable
-is unset, normal server startup raises a configuration error.
-An empty or relative setting is rejected. Missing directories are created during
-generation; permission failures are reported without falling back elsewhere.
-Changing this setting does not move existing output or configure your web server.
-
-The two-argument notebook test continues to use its explicit output directory.
-Programmatic `output_dir` overrides the environment for tests and tooling. Normal
-server startup uses the environment variable.
-
-GET requests require `params` for the JSON-encoded positional array. There is no
-`inputs` compatibility alias. POST still accepts the JSON array directly as its body;
-no object wrapper is required. Both methods return `params` for argument-format
-error codes.
+Set `assets.directory` in the selected JSON. Relative paths resolve against the config file directory; an encoded username subdirectory is appended on Hub.
 
 ## Skip unchanged asset builds
 
@@ -357,7 +328,7 @@ If that archive is missing or damaged, a new batch is generated. An older
 are discarded on unchanged builds and failures. `generate()` returns True when a
 new version is published and False when the current version is reused/repaired.
 
-The current deployment requires JUPYTEREXCEL_ASSET_DIR (or an explicit test output
+The current deployment requires assets.directory (or an explicit test output
 directory); the user's removal of the default data-directory fallback is retained.
 
 ## Managed shared kernel
@@ -422,48 +393,11 @@ The first generation after upgrading replaces an old-format current version;
 existing archived versions remain readable. Unchanged subsequent saves reuse
 the current version as before.
 
-## Keep the managed Excel kernel ready
+## Service kernel readiness
 
-Set `JUPYTEREXCEL_KEEP_KERNEL_READY=1` to initialize the managed kernel when
-the single-user Jupyter server starts, without waiting for an Excel request.
-The default is disabled; `true`, `yes`, and `on` also enable it.
-
-For JupyterHub, add this to the existing Hub configuration (preserving other
-Spawner environment entries):
-
-```python
-c.Spawner.environment.update({
-    "JUPYTEREXCEL_KEEP_KERNEL_READY": "1",
-})
-```
-
-Restart the Hub to apply its configuration, then stop/start the affected user's
-server so it inherits the setting. For standalone JupyterLab on Linux:
-
-```bash
-JUPYTEREXCEL_KEEP_KERNEL_READY=1 jupyter lab
-```
-
-An INFO message announces that keep-ready is enabled, followed by
-`JupyterExcel kernel ready: <id> (user <username>)` after initialization.
-
-The keeper checks every 30 seconds, skips busy/reserved kernels, and initializes
-a replacement after a kernel disappears or its process dies. Failed checks retry
-after 30 seconds, doubling to a maximum of 300 seconds. It excludes only the
-managed kernel from the standard Jupyter kernel idle culler. Explicitly shutting
-down that kernel while keep-ready is enabled causes a replacement to be created.
-Server shutdown cancels maintenance before shutting down kernels and restores
-the original manager methods.
-
-Saved notebook code executes at startup and after kernel replacement/restart.
-In-memory state is lost on restart. Saving a notebook does not reload a running
-kernel. If initialization fails, fix the saved notebook and restart the managed
-kernel; it is retained for inspection rather than repeatedly recreated.
-
-This setting does not start a stopped Hub user server, override Hub idle-server
-culling, prevent host reboots, or interrupt a stuck/busy kernel. Keep the user
-server running and configure any Hub/server culler separately. Custom kernel
-managers without `cull_kernel_if_idle` require their own idle-policy configuration.
+The kernel pool always starts with Jupyter and maintains `execution.min_kernels`
+(default 1). Configure it in JSON; there is no environment-variable switch.
+See [CONFIGURATION.md](CONFIGURATION.md) for startup, validation and inspection.
 
 ## License release checklist
 
@@ -502,7 +436,7 @@ Asset generation automatically adds a `helpUrl` to every worksheet function,
 including built-ins. Pages are created from the packaged
 `jupyterexcel/addin_template/help_template.html` at
 `<asset output>/help/functions/<function ID>.html`, beside the published manifest.
-Links use `JUPYTEREXCEL_ASSET_URL` and the same per-user suffix as the manifest
+Links use `assets.url` and the same per-user suffix as the manifest
 on JupyterHub. Function IDs retain their spelling; page titles and syntax use
 the displayed function name and configured namespace.
 

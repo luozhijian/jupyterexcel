@@ -95,11 +95,12 @@ class AssetTests(unittest.IsolatedAsyncioTestCase):
     async def test_save_hook_keeps_existing_registration(self):
         from jupyterexcel.server_extension import load_jupyter_server_extension
         cm = Contents()
+        cm.root_dir = '.'
         hooks = [lambda **kwargs: None]
         cm.register_post_save_hook = hooks.append
         routes = []
         app = SimpleNamespace(contents_manager=cm, log=logging.getLogger('test'), kernel_manager=object(), session_manager=object(), web_app=SimpleNamespace(settings={'base_url': '/'}, add_handlers=lambda host, handlers: routes.extend(handlers)))
-        with tempfile.TemporaryDirectory() as test_data, patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':test_data}), patch.object(AssetStore, 'schedule') as schedule, patch('jupyterexcel.kernel_pool.KernelPoolExecutor.install'):
+        with tempfile.TemporaryDirectory() as test_data, patch.dict(os.environ, {'JUPYTEREXCEL_ASSET_DIR':test_data}), patch('jupyterexcel.config.load_config', return_value={'path': 'test.json', 'source': 'test', 'config': {'assets': {'directory': str(test_data)}, 'execution': {'timeout_seconds': 30}}}), patch.object(AssetStore, 'schedule') as schedule, patch('jupyterexcel.kernel_pool.KernelPoolExecutor.install'):
             load_jupyter_server_extension(app)
             self.assertEqual(len(hooks), 2)
             self.assertEqual(len(routes), 3)

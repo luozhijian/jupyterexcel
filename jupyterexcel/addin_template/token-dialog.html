@@ -35,10 +35,14 @@
             <section id="jupyter-status-panel" hidden aria-labelledby="jupyter-status-title">
                 <h2 id="jupyter-status-title">Jupyter Status</h2>
                 <button id="jupyter-status-refresh" type="button">Refresh</button>
+                <p id="jupyter-status-message" role="status" aria-live="polite"></p>
                 <p id="jupyter-status-summary"></p>
                 <div class="kernel-table"><table><thead><tr><th>Kernel</th><th>Status</th><th>Busy time</th><th>Function</th><th>Completed</th><th>Failed</th></tr></thead><tbody id="jupyter-status-rows"></tbody></table></div>
                 <p id="jupyter-status-error" class="status error"></p>
-                <p id="jupyter-status-message" role="status" aria-live="polite"></p>
+                <section class="jupyter-configuration" aria-labelledby="jupyter-configuration-title">
+                    <h3 id="jupyter-configuration-title">JupyterExcel configuration</h3>
+                    <pre id="jupyter-status-config">Refresh to view the server configuration.</pre>
+                </section>
             </section>
             <section id="reload-confirmation" class="reload-confirmation" role="alertdialog" aria-labelledby="reload-title" aria-describedby="reload-description" hidden>
                 <h2 id="reload-title">Reload the add-in?</h2>

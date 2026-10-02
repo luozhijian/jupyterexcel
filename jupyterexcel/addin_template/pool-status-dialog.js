@@ -40,7 +40,7 @@ Office.onReady(() => {
     if (args.origin && args.origin !== window.location.origin) return;
     let reply;
     try { reply = JSON.parse(args.message); } catch (_) { return; }
-    if (reply.type !== 'jupyter-status-result' || reply.requestId !== activeRequest || panel.hidden || document.hidden) return;
+    if (!waiting || reply.type !== 'jupyter-status-result' || reply.requestId !== activeRequest || panel.hidden || document.hidden) return;
     if (timer !== null) clearTimeout(timer);
     timer = null; waiting = false;
     if (reply.error) {
@@ -65,7 +65,18 @@ Office.onReady(() => {
       body.appendChild(row);
     }
     document.getElementById('jupyter-status-error').textContent = data.last_error || '';
-    message.textContent = 'Updated ' + new Date().toLocaleTimeString() + '. Busy time is not CPU usage.';
+    const configuration = data.configuration;
+    document.getElementById('jupyter-status-config').textContent = configuration && configuration.config
+      ? 'Configuration file: ' + configuration.path + '\n' +
+        'Selected by: ' + configuration.source + '\n' +
+        'State: loaded server settings\n' +
+        (configuration.restart_required ? 'File changed or unavailable; restart Jupyter to apply changes.\n' : '') +
+        '\n' + JSON.stringify(configuration.config, null, 2)
+      : 'Configuration details are unavailable from this server.';
+    const sampledAt = typeof data.sampled_at === 'string' ? Date.parse(data.sampled_at) : NaN;
+    message.textContent = Number.isFinite(sampledAt)
+      ? 'Server snapshot: ' + new Date(sampledAt).toLocaleTimeString() + '. Busy time is not CPU usage.'
+      : 'Server snapshot time unavailable. Update/restart Jupyter and reload the add-in. Status freshness cannot be verified.';
     timer = setTimeout(request, 2000);
   });
 });

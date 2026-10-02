@@ -11,11 +11,41 @@ test('status polling renders text and stops when hidden or unauthorized', () => 
   vm.runInNewContext(fs.readFileSync('jupyterexcel/addin_template/pool-status-dialog.js','utf8'), {Office,document,window:{location:{origin:'https://assets'},addEventListener(){}},Date,setTimeout:(fn,ms)=>{jobs.set(++id,{fn,ms}); return id;},clearTimeout:id=>jobs.delete(id)});
   nodes['jupyter-status'].onclick();
   const requestId=messages.at(-1).requestId;
-  const status = {settings:{max_kernels:4,utilization_window_seconds:5},utilization:.85,queued_requests:2,oldest_wait_seconds:1.2,scaling_status:'Starting a kernel',kernels:[{name:'Kernel 1',status:'busy',utilization:.85,current_function:'<script>x</script>',completed_calls:4,failed_calls:0}]};
+  const configuration = {path:'C:/settings/<config>.json',source:'JUPYTEREXCEL_CONFIG_FILE',restart_required:true,config:{execution:{min_kernels:1}}};
+  const status = {sampled_at:'2026-10-01T18:00:00Z',configuration,settings:{max_kernels:4,utilization_window_seconds:5},utilization:.85,queued_requests:2,oldest_wait_seconds:1.2,scaling_status:'Starting a kernel',kernels:[{name:'Kernel 1',status:'busy',utilization:.85,current_function:'<script>x</script>',completed_calls:4,failed_calls:0}]};
   receive({origin:'https://assets',message:JSON.stringify({type:'jupyter-status-result',requestId,status})});
   assert.match(nodes['jupyter-status-summary'].textContent,/85%/);
+  assert.match(nodes['jupyter-status-message'].textContent, /^Server snapshot: /);
+  const shown = nodes['jupyter-status-config'].textContent;
+  assert.ok(shown.includes('Configuration file: C:/settings/<config>.json'));
+  assert.ok(shown.includes('Selected by: JUPYTEREXCEL_CONFIG_FILE'));
+  assert.ok(shown.includes('State: loaded server settings'));
+  assert.ok(shown.includes('restart Jupyter'));
+  assert.ok(shown.includes(JSON.stringify(configuration.config, null, 2)));
+  assert.equal(nodes['jupyter-status-config'].innerHTML, undefined);
   assert.equal(nodes['jupyter-status-rows'].children[0].children[3].textContent,'<script>x</script>');
   assert.equal([...jobs.values()][0].ms,2000);
+  const pollTimer = [...jobs.keys()][0];
+  const duplicate = JSON.parse(JSON.stringify(status));
+  duplicate.kernels[0].completed_calls = 999;
+  receive({origin:'https://assets',message:JSON.stringify({type:'jupyter-status-result',requestId,status:duplicate})});
+  assert.equal(nodes['jupyter-status-rows'].children[0].children[4].textContent, '4');
+  assert.equal([...jobs.keys()][0], pollTimer, 'duplicate replies must not postpone polling');
+  nodes['jupyter-status-refresh'].onclick();
+  delete status.configuration;
+  status.kernels[0].completed_calls = 5;
+  receive({origin:'https://assets',message:JSON.stringify({type:'jupyter-status-result',requestId:messages.at(-1).requestId,status})});
+  assert.match(nodes['jupyter-status-config'].textContent, /unavailable/);
+  assert.equal(nodes['jupyter-status-rows'].children[0].children[4].textContent, '5');
+  for (const sampled_at of [undefined, null, '', 'invalid-date']) {
+    nodes['jupyter-status-refresh'].onclick();
+    receive({origin:'https://assets',message:JSON.stringify({type:'jupyter-status-result',requestId:messages.at(-1).requestId,status:{...status,sampled_at}})});
+    assert.match(nodes['jupyter-status-message'].textContent, /snapshot time unavailable/);
+    assert.doesNotMatch(nodes['jupyter-status-message'].textContent, /Invalid Date/);
+  }
+  nodes['jupyter-status-refresh'].onclick();
+  receive({origin:'https://assets',message:JSON.stringify({type:'jupyter-status-result',requestId:messages.at(-1).requestId,status:{...status,sampled_at:'2026-10-01T18:00:00.123Z'}})});
+  assert.match(nodes['jupyter-status-message'].textContent, /^Server snapshot: /);
   nodes['jupyter-status'].onclick(); assert.equal(jobs.size,0);
   nodes['jupyter-status'].onclick();
   receive({origin:'https://assets',message:JSON.stringify({type:'jupyter-status-result',requestId:messages.at(-1).requestId,error:'Replace token'})});
@@ -24,11 +54,25 @@ test('status polling renders text and stops when hidden or unauthorized', () => 
 
 test('runtime status uses configured server and saved token without logging credentials', async () => {
   const calls=[];
-  const context={URL,AbortController,setTimeout,clearTimeout,console,Date,Math,JSON,Promise,JupyterExcelConfig:{apiBase:'https://server/user/alice'},jupyterExcelAuth:async()=>({token:'secret'}),fetch:async(url,options)=>{calls.push({url,options});return {ok:true,status:200,json:async()=>({ok:true,status:{queued_requests:2}})};}};
+  const context={URL,AbortController,setTimeout,clearTimeout,console,Date,Math,JSON,Promise,JupyterExcelConfig:{apiBase:'https://server/user/alice'},jupyterExcelAuth:async()=>({token:'secret'}),fetch:async(url,options)=>{calls.push({url,options});return {ok:true,status:200,json:async()=>({ok:true,request_id:new URL(url).searchParams.get('request_id'),sampled_at:'2026-10-01T18:00:00Z',status:{queued_requests:2},configuration:{path:'/settings.json',config:{addin:{namespace:'Jupyter'}}}})};}};
   vm.runInNewContext(fs.readFileSync('jupyterexcel/addin_template/jupyter-runtime.js','utf8'),context);
   const status=await context.JupyterExcel.getJupyterStatus();
   assert.equal(status.queued_requests,2);
-  assert.equal(calls[0].url,'https://server/user/alice/jupyterexcel/api/status');
+  assert.equal(status.configuration.path,'/settings.json');
+  assert.equal(status.configuration.config.addin.namespace,'Jupyter');
+  assert.equal(new URL(calls[0].url).pathname,'/user/alice/jupyterexcel/api/status');
+  assert.equal(status.sampled_at,'2026-10-01T18:00:00Z');
+  await context.JupyterExcel.getJupyterStatus();
+  assert.notEqual(calls[0].url, calls[1].url);
+  context.fetch = async () => ({ok:true,status:200,json:async()=>({ok:true,request_id:'old-request',status:{}})});
+  await assert.rejects(context.JupyterExcel.getJupyterStatus(), /freshness/);
   assert.equal(calls[0].options.headers.Authorization,'token secret');
   assert.equal(calls[0].options.credentials,'omit');
+});
+
+
+test('status dialog places update time below Refresh and configuration below kernels', () => {
+  const html = fs.readFileSync('jupyterexcel/addin_template/token-dialog.html', 'utf8');
+  assert.match(html, /id="jupyter-status-refresh"[^>]*>Refresh<\/button>\s*<p id="jupyter-status-message"/);
+  assert.ok(html.indexOf('id="jupyter-status-rows"') < html.indexOf('id="jupyter-status-config"'));
 });

@@ -29,10 +29,8 @@ def ribbon(): pass
                                    web_app=SimpleNamespace(settings={'base_url': '/'}), port=8888)
         self.templates = self.root / 'templates'
         shutil.copytree(Path(__import__('jupyterexcel').__file__).parent / 'addin_template', self.templates)
+        contents._jupyterexcel_config = {'config': {'addin': {'namespace': 'MyNamespace'}, 'server': {'public_url': 'https://api.example'}}}
         self.store = self.make_store()
-        self.env = patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': 'MyNamespace'})
-        self.env.start()
-        self.addCleanup(self.env.stop)
 
     def get(self, path, content=True):
         if not path:

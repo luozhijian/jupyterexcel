@@ -23,19 +23,21 @@ def version_stamp(now):
 class AssetStore:
     def __init__(self, app, template_dir=None, username=None, output_dir=None, asset_url=None):
         self.app = app
+        snapshot = getattr(getattr(app, 'contents_manager', None), '_jupyterexcel_config', None)
+        self.config = snapshot['config'] if snapshot is not None else {}
         self.templates = Path(template_dir or Path(__file__).parent / 'addin_template')
         # Explicit destinations isolate tests/tools from deployment settings.
         configured = output_dir
         if configured is None:
-            configured = os.environ.get('JUPYTEREXCEL_ASSET_DIR')
+            configured = self.config.get('assets', {}).get('directory')
         if configured is not None:
             if not str(configured).strip():
-                raise ValueError('JUPYTEREXCEL_ASSET_DIR/output_dir must be a nonempty absolute path.')
+                raise ValueError('assets.directory/output_dir must be a nonempty absolute path.')
             self.root = Path(configured)
             if not self.root.is_absolute():
-                raise ValueError('JUPYTEREXCEL_ASSET_DIR/output_dir must be an absolute path.')
+                raise ValueError('assets.directory/output_dir must be an absolute path.')
         else:
-            raise ValueError('Environment variable JUPYTEREXCEL_ASSET_DIR should be defined for manifest.xml file generation.')
+            raise ValueError('Setting assets.directory should be defined for manifest.xml file generation.')
         if self.root.exists() and not self.root.is_dir():
             raise ValueError('Asset output path is not a directory: ' + str(self.root))
         self.username_path = quote(username, safe='').replace('.', '%2E') if username else None
@@ -75,20 +77,20 @@ class AssetStore:
     def _asset_base_url(self):
         configured = self.asset_url
         if configured is None:
-            configured = os.environ.get('JUPYTEREXCEL_ASSET_URL')
+            configured = self.config.get('assets', {}).get('url')
         if not configured or not str(configured).strip():
-            raise ValueError('Environment variable JUPYTEREXCEL_ASSET_URL should be defined for manifest.xml file generation.')
+            raise ValueError('Setting assets.url should be defined for manifest.xml file generation.')
         configured = str(configured).rstrip('/')
         parsed = urlsplit(configured)
         if parsed.scheme != 'https' or not parsed.netloc or parsed.query or parsed.fragment:
-            raise ValueError('JUPYTEREXCEL_ASSET_URL/asset_url must be an absolute HTTPS URL without query or fragment.')
+            raise ValueError('assets.url/asset_url must be an absolute HTTPS URL without query or fragment.')
         return configured + ('/' + self.username_path if self.username_path else '')
 
     def _render(self, batch, functions):
-        namespace = os.environ.get('JUPYTEREXCEL_NAMESPACE', '').strip() or 'Jupyter'
+        namespace = self.config.get('addin', {}).get('namespace', 'Jupyter').strip()
         if not re.fullmatch(r'[A-Za-z][A-Za-z0-9._]{0,31}', namespace):
             raise ValueError(
-                'JUPYTEREXCEL_NAMESPACE must be 1-32 characters, start with an ASCII '
+                'addin.namespace must be 1-32 characters, start with an ASCII '
                 'letter, and contain only ASCII letters, digits, periods, or underscores.'
             )
         # Copy only browser assets, not build configuration or source maps.

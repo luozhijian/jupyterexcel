@@ -5,8 +5,9 @@ name = "jupyterexcel"
 __version__ = '0.1.0'
 
 from .utils import jupyter_function, ribbon_function
+from .config import show_config
 
-__all__ = ["jupyter_function", "ribbon_function"]
+__all__ = ["jupyter_function", "ribbon_function", "show_config"]
 
 
 def _jupyter_labextension_paths():

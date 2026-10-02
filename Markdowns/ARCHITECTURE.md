@@ -2,7 +2,7 @@
 
 ## Managed kernel pool
 
-The active server uses `KernelPoolExecutor`: 2 minimum workers, 4 maximum, a
+The active server uses `KernelPoolExecutor`: 1 minimum worker, 4 maximum, a
 5-second busy-time window, and a 1-second queue scale-up trigger. See
 [KERNEL_POOL.md](KERNEL_POOL.md) for settings, reload behavior, and the
 Jupyter Status panel in the token dialog. Historical single-kernel descriptions
@@ -83,7 +83,7 @@ Contains the static discovery and Office resource generation layer.
 3. `functions_metadata` generates Office custom-functions JSON for `jupyter_function` entries only.
 4. `functions_javascript` generates JavaScript bridges and calls `CustomFunctions.associate` for every worksheet function ID.
 5. `assets.py` renders the add-in-only XML manifest from `addin_template/manifest.xml`; the template defines the worksheet namespace.
-6. `public_url` derives the externally referenced origin or uses `JUPYTEREXCEL_PUBLIC_URL`.
+6. `public_url` derives the externally referenced origin or uses `server.public_url`.
 
 Duplicate worksheet-function IDs are rejected because Office requires every metadata ID to be unique. Ribbon functions do not participate in that worksheet metadata.
 
@@ -115,7 +115,7 @@ For an Excel formula such as `=JUPYTER.ADD(1, 2)`:
 
 ## Public URL and authentication
 
-Manifest URLs must be reachable from the computer running Excel. By default, the origin is derived from the Jupyter server's scheme, host, port, and base path. Set `JUPYTEREXCEL_PUBLIC_URL` when a reverse proxy or separate public address is used.
+Manifest URLs must be reachable from the computer running Excel. By default, the origin is derived from the Jupyter server's scheme, host, port, and base path. Set `server.public_url` when a reverse proxy or separate public address is used.
 
 Office add-ins require HTTPS with a certificate trusted by the Excel computer. Authentication remains controlled by Jupyter. Generated assets must never embed a token or password.
 
@@ -128,6 +128,9 @@ The scanner recognizes `@ribbon_function`, and the task pane displays discovered
 Excel caches add-in metadata, so newly added or renamed custom functions may require an Excel restart or cache clear. The server caches kernel clients and notebook modification timestamps to avoid rerunning unchanged notebooks. Cache keys must remain based on complete notebook paths.
 
 
-## Optional kernel maintenance
+## Service kernel maintenance
 
-JUPYTEREXCEL_KEEP_KERNEL_READY enables a per-server KernelKeeper. It starts on the server event loop and uses SharedKernelExecutor.ensure_ready under the same lock as worksheet requests. Per-instance kernel-manager hooks exempt only the managed kernel from idle culling and cancel the maintenance task before shutdown_all. Existing methods are restored on stop. Default request-triggered initialization remains unchanged. See DEVELOPMENT.md for deployment and recovery behavior.
+The pool always starts at server startup and maintains `execution.min_kernels`
+(default 1), protecting its service kernels from idle culling. Configuration is
+loaded and validated before assets and execution initialize, then shared as one
+startup snapshot. See [CONFIGURATION.md](CONFIGURATION.md).

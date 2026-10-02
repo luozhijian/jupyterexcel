@@ -1,4 +1,15 @@
 {
+  "schema_version": 1,
+  "server": {
+    "public_url": "https://localhost:8888"
+  },
+  "assets": {
+    "directory": "C:/Websites/JupyterExcel/excel-addin",
+    "url": "https://localhost"
+  },
+  "addin": {
+    "namespace": "Jupyter"
+  },
   "discovery": {
     "include": [
       {
@@ -6,12 +17,20 @@
         "recursive": false
       }
     ]
-  },
+  }, 
   "execution": {
     "min_kernels": 2,
     "max_kernels": 4,
+    "timeout_seconds": 30,
+    "startup_timeout_seconds": 60,
+    "queue_timeout_seconds": 30,
+    "max_queue_size": 1000,
     "scale_up_utilization": 0.8,
     "utilization_window_seconds": 5,
-    "queue_scale_up_after_seconds": 1
+    "queue_scale_up_after_seconds": 1,
+    "scale_up_cooldown_seconds": 1
+  },
+  "hub": {
+    "auto_start_users": []
   }
 }

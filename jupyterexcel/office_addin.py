@@ -3,7 +3,6 @@
 import ast
 import json
 import logging
-import os
 from pathlib import Path
 from dataclasses import dataclass, field
 from urllib.parse import quote
@@ -252,12 +251,13 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None, 
 
 
 def public_url(server_app):
-    configured = os.environ.get("JUPYTEREXCEL_PUBLIC_URL")
+    snapshot = getattr(getattr(server_app, 'contents_manager', None), '_jupyterexcel_config', None)
+    configured = snapshot['config']['server']['public_url'] if snapshot is not None else None
     if configured:
         return configured.rstrip("/")
     logger = getattr(server_app, "log", None) or logging.getLogger(__name__)
     logger.error(
-        "JUPYTEREXCEL_PUBLIC_URL is not set or is empty; "
+        "No loaded server.public_url; "
         "continuing with a URL derived from the Jupyter server settings."
     )
     scheme = "https" if getattr(server_app, "certfile", "") else "http"

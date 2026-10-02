@@ -23,6 +23,7 @@ class NotebookContents:
 
 
 class FingerprintTests(unittest.IsolatedAsyncioTestCase):
+
     async def asyncSetUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -49,45 +50,37 @@ class FingerprintTests(unittest.IsolatedAsyncioTestCase):
             "[@id='Functions.Namespace']"
         ).get('DefaultValue')
 
-    async def test_namespace_defaults_for_unset_empty_and_whitespace(self):
-        with patch.dict(os.environ):
-            os.environ.pop('JUPYTEREXCEL_NAMESPACE', None)
+    async def test_namespace_defaults_and_legacy_environment_ignored(self):
+        with patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': 'Ignored'}):
             self.assertTrue(await self.store.generate())
             self.assertEqual(self.manifest_namespace(), 'Jupyter')
-            for value in ('', '  \t\n'):
-                os.environ['JUPYTEREXCEL_NAMESPACE'] = value
-                self.assertFalse(await self.store.generate())
-                self.assertEqual(self.manifest_namespace(), 'Jupyter')
 
     async def test_namespace_changes_publish_and_preserve_function_ids(self):
-        with patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': 'Jupyter'}):
-            await self.store.generate()
-            previous = self.store.current
-            metadata = (self.store.root / 'functions.json').read_bytes()
-            with patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': '  MyCompany  '}):
-                self.assertTrue(await self.store.generate())
-                self.assertNotEqual(self.store.current, previous)
-                self.assertEqual(self.manifest_namespace(), 'MyCompany')
-                self.assertEqual((self.store.root / 'functions.json').read_bytes(), metadata)
-                self.assertFalse(await self.store.generate())
-            self.assertTrue(await self.store.generate())
-            self.assertEqual(self.manifest_namespace(), 'Jupyter')
+        await self.store.generate()
+        previous = self.store.current
+        metadata = (self.store.root / 'functions.json').read_bytes()
+        self.store.config = {'addin': {'namespace': 'MyCompany'}}
+        self.assertTrue(await self.store.generate())
+        self.assertNotEqual(self.store.current, previous)
+        self.assertEqual(self.manifest_namespace(), 'MyCompany')
+        self.assertEqual((self.store.root / 'functions.json').read_bytes(), metadata)
+        self.assertFalse(await self.store.generate())
 
     async def test_invalid_namespace_preserves_published_assets(self):
-        with patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': 'Jupyter'}):
-            await self.store.generate()
-            before = {str(p): p.read_bytes() for p in self.store.root.rglob('*') if p.is_file()}
-            for value in ('1Bad', '_Bad', 'Bad Name', 'Bad-Name', 'A' * 33,
-                          'Bad"/><x>', 'A&B', 'Bad\nName', 'München'):
-                with self.subTest(value=value), patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': value}):
-                    with self.assertRaisesRegex(ValueError, 'JUPYTEREXCEL_NAMESPACE must'):
-                        await self.store.generate()
-                    self.assertEqual(
-                        {str(p): p.read_bytes() for p in self.store.root.rglob('*') if p.is_file()}, before)
+        await self.store.generate()
+        before = {str(p): p.read_bytes() for p in self.store.root.rglob('*') if p.is_file()}
+        for value in ('', '1Bad', '_Bad', 'Bad Name', 'Bad-Name', 'A' * 33,
+                      'Bad"/><x>', 'A&B', 'Bad\nName', 'München'):
+            with self.subTest(value=value):
+                self.store.config = {'addin': {'namespace': value}}
+                with self.assertRaisesRegex(ValueError, 'addin.namespace must'):
+                    await self.store.generate()
+                self.assertEqual({str(p): p.read_bytes() for p in self.store.root.rglob('*') if p.is_file()}, before)
 
     async def test_namespace_accepts_supported_characters_and_length_limits(self):
         for value in ('A', 'MyCompany_2.Tools', 'A' * 32):
-            with self.subTest(value=value), patch.dict(os.environ, {'JUPYTEREXCEL_NAMESPACE': value}):
+            with self.subTest(value=value):
+                self.store.config = {'addin': {'namespace': value}}
                 self.assertTrue(await self.store.generate())
                 self.assertEqual(self.manifest_namespace(), value)
 
@@ -117,8 +110,8 @@ class FingerprintTests(unittest.IsolatedAsyncioTestCase):
             file = self.templates/name
             file.write_bytes(file.read_bytes() + b'\n')
             self.assertTrue(await self.store.generate())
-        with patch.dict(os.environ, {"JUPYTEREXCEL_PUBLIC_URL": "https://changed.example:9999"}):
-            self.assertTrue(await self.store.generate())
+        self.contents._jupyterexcel_config = {'config': {'server': {'public_url': 'https://changed.example:9999'}}}
+        self.assertTrue(await self.store.generate())
 
     async def test_missing_or_modified_public_files_are_repaired_without_version(self):
         await self.store.generate()
@@ -152,7 +145,6 @@ class FingerprintTests(unittest.IsolatedAsyncioTestCase):
                 await self.store.generate()
         self.assertEqual(pointer.read_bytes(), previous)
         self.assertTrue(await self.store.generate())
-
 
 
     async def test_license_notices_published_unchanged(self):

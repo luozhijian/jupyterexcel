@@ -97,10 +97,18 @@ def load_jupyter_server_extension(app):
     )
 
 
+    from .config import load_config
+    root = getattr(app.contents_manager, 'root_dir', None) or getattr(app, 'root_dir', None)
+    if root is None and 'JUPYTEREXCEL_CONFIG_FILE' not in os.environ:
+        raise ValueError('Set JUPYTEREXCEL_CONFIG_FILE for a ContentsManager without a filesystem root.')
+    snapshot = load_config(root=root)
+    settings['jupyterexcel_config'] = snapshot
+    app.contents_manager._jupyterexcel_config = snapshot
+    app.log.info('JupyterExcel configuration: %s (%s)', snapshot['path'], snapshot['source'])
     hub_user = os.environ.get('JUPYTERHUB_USER')
     store = AssetStore(app, username=hub_user)
     executor = KernelPoolExecutor(app.kernel_manager, app.session_manager, app.contents_manager,
-                                    hub_user or getpass.getuser(), timeout=float(os.environ.get('JUPYTEREXCEL_EXECUTION_TIMEOUT', '30')))
+                                    hub_user or getpass.getuser(), timeout=snapshot['config']['execution']['timeout_seconds'])
     settings['jupyterexcel_asset_store'] = store
     settings['jupyterexcel_executor'] = executor
     executor.install(app.log)

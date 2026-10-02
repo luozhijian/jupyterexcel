@@ -67,7 +67,7 @@ For a working deployment, you also need:
   1.1, and permission to load the add-in manifest.
 - An HTTPS static web server, such as IIS or Nginx, to serve the generated add-in
   files, with a certificate trusted by the computer running Excel. Configure
-  `JUPYTEREXCEL_ASSET_DIR` and `JUPYTEREXCEL_ASSET_URL` as described below, and
+  `assets.directory` and `assets.url` in the JSON file as described below, and
   make the Jupyter API reachable from Excel over HTTPS.
 
 Install JupyterExcel in the Jupyter server environment. If your `python3` kernel
@@ -96,40 +96,32 @@ Then run the following command to check whether `jupyterexcel` is already enable
     jupyter server extension enable --py jupyterexcel --sys-prefix
 
 
-## Environment Variables
+## Configuration
 
-All six settings are ordinary process environment variables. **Spawner** and
-**OS environment** describe how they reach the process that reads them:
+JupyterExcel reads all settings from one `jupyterexcel-config.json` file.
+Use the [complete example](jupyterexcel-config.json) and adjust its URLs and
+asset directory to your deployment. See [configuration details](Markdowns/CONFIGURATION.md).
 
-- **JupyterHub:** put the first five settings in `c.Spawner.environment` in
-  `jupyterhub_config.py`. JupyterHub passes them to each user's Jupyter server.
-  The `c.Spawner.environment` block belongs in `jupyterhub_config.py`, because
-  it configures how JupyterHub launches user servers. For standalone Jupyter,
-  set environment variables before startup or use `os.environ` assignments in
-  `jupyter_server_config.py`.
-- **Standalone Jupyter:** set the first five in the terminal or service environment
-  before launching Jupyter. There is no Spawner in this setup.
-  On native Windows, use this **standalone** setup, as JupyterHub is not officially supported there (use a Linux environment, a Linux container, or a Linux VM for JupyterHub).
-- **Hub startup:** set `JUPYTEREXCEL_AUTO_START_USERS` in the Hub process environment,
-  or through `os.environ` in `jupyterhub_config.py` before `configure_autostart(c)`.
-  Putting it only in `c.Spawner.environment` will not start user servers.
+By default, the file is in the Jupyter server's notebook root. To use a central
+file regardless of the launch folder, set the only JupyterExcel environment variable:
 
-Setting `os.environ` changes only the current Python process and any child
-processes that subsequently inherit its environment; it does not permanently change Windows or Linux settings.
-JupyterHub filters inheritance, so a variable set in the Hub's OS environment is
-not automatically passed to user servers. Use `c.Spawner.environment` explicitly,
-or configure `c.Spawner.env_keep` for selected inherited variables. See the
-[JupyterHub Spawner environment reference](https://jupyterhub.readthedocs.io/en/latest/reference/api/spawner.html#jupyterhub.spawner.Spawner.environment).
+```powershell
+$env:JUPYTEREXCEL_CONFIG_FILE = "C:/JupyterExcel/jupyterexcel-config.json"
+```
 
-| Variable | Where to set it | Purpose, default, and example |
-| --- | --- | --- |
-| `JUPYTEREXCEL_ASSET_DIR` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Absolute directory writable by Jupyter for generated manifest, JavaScript, and HTML files. Example: `/var/www/jupyterexcel/excel-addin` or `C:\Websites\JupyterExcel\excel-addin`. On Hub, an encoded username subfolder is appended automatically. |
-| `JUPYTEREXCEL_ASSET_URL` | Spawner on Hub; OS environment for standalone Jupyter | **Required.** Public HTTPS URL serving `ASSET_DIR`, without a query or fragment. It is the base URL for `manifest.xml`. Example: `https://www.jupyterexcel.com/excel-addin`. On Hub, the username is appended automatically, so do not include it here. Setting this does not configure IIS or Nginx; configure that server separately. |
-| `JUPYTEREXCEL_PUBLIC_URL` | Spawner on Hub; OS environment for standalone Jupyter | Jupyter API base URL reachable from Excel. Example: `https://www.jupyterexcel.com/user/alice` or `https://localhost:8888` for Windows. Include the user's server path on Hub. If unset, the extension logs an error and derives a URL from Jupyter's server settings; set it explicitly behind a reverse proxy. This is the API address, not the static asset address above. |
-| `JUPYTEREXCEL_KEEP_KERNEL_READY` | Spawner on Hub; OS environment for standalone Jupyter | Set `1` to start and maintain the managed kernel before an Excel request. Also accepts `true`, `yes`, or `on`, ignoring case. Unset or `0` disables proactive startup; the first request initializes the kernel instead. It does not start a stopped Hub user server. |
-| `JUPYTEREXCEL_NAMESPACE` | Spawner on Hub; OS environment for standalone Jupyter | Formula prefix, such as `MyCompany` for `=MyCompany.Sum(...)`. Defaults to `Jupyter` when unset or blank. Surrounding whitespace is trimmed. Use 1–32 ASCII characters, starting with a letter, followed by letters, digits, periods, or underscores. |
-| `JUPYTEREXCEL_AUTO_START_USERS` | Hub OS/process environment only | Comma-separated existing Hub usernames, such as `alice,bob`. With `configure_autostart(c)`, starts their default user servers when Hub starts. Unset or blank disables this feature. It does not create accounts or start named servers; it has no effect in standalone Jupyter. |
+The path must be absolute. An explicit missing or invalid file is an error;
+there is no fallback or merging. Restart Jupyter after changing configuration.
+The server starts and maintains `execution.min_kernels` service kernels
+(default 1). There is no separate keep-ready switch.
 
+```python
+import jupyterexcel
+jupyterexcel.show_config()
+```
+
+Inspection prints the file path, selection source, and full effective settings.
+An ordinary Python session previews the file; a managed service kernel shows
+the loaded server snapshot and detects edits requiring restart.
 
 ## Server settings
 
@@ -142,17 +134,8 @@ Follow the [Jupyter server configuration guide](https://jupyter-notebook.readthe
 ```
 
 
-For JupyterHub, add the following environment settings to `jupyterhub_config.py` (not `jupyter_server_config.py`). For standalone Jupyter, use the environment-variable example below.
-```
-c.Spawner.environment.update({
-    "JUPYTEREXCEL_ASSET_DIR": "/var/www/jupyterexcel/excel-addin",
-    "JUPYTEREXCEL_ASSET_URL": "https://www.jupyterexcel.com/excel-addin/",
-    "JUPYTEREXCEL_PUBLIC_URL": "https://www.jupyterexcel.com/user/jupyterhub",
-    "JUPYTEREXCEL_KEEP_KERNEL_READY": "1",
-    "JUPYTEREXCEL_NAMESPACE": "Jupyter",
-})
-
-```
+Configure deployment values in the selected JSON file. Jupyter authentication,
+TLS and reverse-proxy settings remain in their respective server configurations.
 
 Adjust the following settings for your deployment.
 
@@ -163,23 +146,12 @@ c.ServerApp.allow_origin = 'https://your-addin-host'  # Use the exact origin hos
 c.ServerApp.allow_remote_access = True  # Enable access from other computers.
 ```
 
-The following JupyterHub configuration reduces the initial response time by starting the configured user server and keeping its managed kernel ready for Excel requests. Append it after the Spawner settings in `jupyterhub_config.py`.
+For optional Hub user-server startup, set `hub.auto_start_users` in an
+administrator-owned JSON file and call the helper in `jupyterhub_config.py`:
 
-```
-try:
-    import logging
-    import os
-    from jupyterexcel.hub_autostart import configure_autostart
-
-    os.environ["JUPYTEREXCEL_AUTO_START_USERS"] = "jupyterhub"
-    # Start the configured user server and keep its managed Jupyter kernel ready.
-    configure_autostart(c)
-except Exception:
-    logging.getLogger("jupyterhub").exception(
-        "JupyterExcel auto-start configuration failed; "
-        "continuing without automatic user-server startup."
-    )
-
+```python
+from jupyterexcel.hub_autostart import configure_autostart
+configure_autostart(c, config_file="/etc/jupyterexcel/jupyterexcel-config.json")
 ```
 
 On Linux, Nginx can serve the HTML, JavaScript, and `manifest.xml` files from the same origin as JupyterHub, so cross-origin API access (CORS) is unnecessary. A sample Nginx configuration follows:
@@ -266,60 +238,22 @@ server {
 }
 ```
 
-### Example: JupyterHub
+### JupyterHub configuration selection
 
-Place this in `jupyterhub_config.py`. The URL example assumes default user servers
-under `/user/<username>/`; adjust the public hostname and any proxy prefix.
+Each user server reads its own notebook-root JSON by default. Alternatively,
+set `JUPYTEREXCEL_CONFIG_FILE` in that user's Spawner environment to select a
+central file. Set `server.public_url` to that user's complete public API URL;
+there is no automatic username substitution. Asset directory and URL still
+receive an encoded username suffix on Hub. The Hub autostart helper reads its
+own administrator-selected file and does not overwrite users' configuration.
 
-```python
-import os
-from urllib.parse import quote
-from jupyterexcel.hub_autostart import configure_autostart
+### Standalone Jupyter on Windows
 
-c.Spawner.environment.update({
-    "JUPYTEREXCEL_ASSET_DIR": "/var/www/jupyterexcel/excel-addin",
-    "JUPYTEREXCEL_ASSET_URL": "https://www.jupyterexcel.com/excel-addin",
-    "JUPYTEREXCEL_PUBLIC_URL": lambda spawner: (
-        "https://www.jupyterexcel.com/user/" + quote(spawner.user.name, safe="")
-    ),
-    "JUPYTEREXCEL_KEEP_KERNEL_READY": "1",
-    "JUPYTEREXCEL_NAMESPACE": "Jupyter",
-})
-
-# Read by the Hub, not by the spawned user's server.
-os.environ["JUPYTEREXCEL_AUTO_START_USERS"] = "alice,bob"
-configure_autostart(c)  # Call once, after other Spawner hooks are configured.
-```
-
-The autostart helper enables `KEEP_KERNEL_READY=1` for the listed users unless
-already set in their Spawner environment. If absent there, a Hub-process
-`KEEP_KERNEL_READY` value overrides that helper default. The explicit `1` in the
-example above enables keep-ready for all spawned users, including users not in
-`AUTO_START_USERS`.
-
-### Example: standalone Jupyter on Windows
-
-
-Run in PowerShell, then start Jupyter from that same terminal using port 8888:
-
-```powershell
-$env:JUPYTEREXCEL_ASSET_DIR = "C:\Websites\JupyterExcel\excel-addin"
-$env:JUPYTEREXCEL_ASSET_URL = "https://localhost"
-$env:JUPYTEREXCEL_PUBLIC_URL = "https://localhost:8888"
-$env:JUPYTEREXCEL_KEEP_KERNEL_READY = "1"
-$env:JUPYTEREXCEL_NAMESPACE = "Jupyter"
-jupyter lab --ServerApp.certfile="C:\Users\xxxx\.office-addin-dev-certs\localhost.crt" --ServerApp.keyfile="C:\Users\xxxx\.office-addin-dev-certs\localhost.key" --ServerApp.port=8888 --ServerApp.port_retries=0 --ServerApp.allow_origin="https://localhost"
-```
-
-Use URLs matching your actual HTTPS and static-server configuration. These
-PowerShell assignments apply to the current session and processes started from
-it. On Linux, use `export JUPYTEREXCEL_NAMESPACE="Jupyter"` and the same pattern
-for the other variables before starting Jupyter. For a service, configure its
-service environment instead of relying on an interactive terminal.
-
-Restart the relevant process after changing its environment.
-
-Once files have been generated in `C:\Websites\JupyterExcel\excel-addin`, you can set up IIS.
+Put `jupyterexcel-config.json` in the notebook root, or set the optional central
+file path above, then start Jupyter with your existing HTTPS configuration.
+The JSON example uses `https://localhost:8888` for Jupyter and
+`https://localhost/excel-addin` for static assets; adjust both to your setup.
+Configure IIS to serve `assets.directory` at `assets.url`.
 
 ![Windows IIS Sample Setup](https://github.com/luozhijian/jupyterexcel/raw/master/WindowsIISSetup.png)
 
@@ -339,23 +273,13 @@ Sample ribbon_function: https://jupyterexcel.com/excel-addin/ribbon_function.htm
 
 ## Formula namespace
 
-Set `JUPYTEREXCEL_NAMESPACE` before starting Jupyter to choose the formula prefix:
-
-```powershell
-$env:JUPYTEREXCEL_NAMESPACE = "MyCompany"
-```
-
-The generated manifest then exposes formulas such as `=MyCompany.ADD(1,2)`.
-Unset, empty, or whitespace-only values default to `Jupyter`; surrounding
-whitespace is trimmed. Supported values are 1-32 ASCII characters, begin with a
-letter, and contain only letters, digits, periods, or underscores. Invalid values
-stop asset generation with a clear error and leave previously published assets intact.
-
-This applies to all worksheet functions, including built-ins. Function IDs and
-API endpoints do not change. For JupyterHub, set it in the user's spawned server
-environment. Restart that server after changing its environment and reload the
-updated manifest in Excel (clearing its add-in cache if necessary). Existing
-workbooks are not migrated automatically to a new formula namespace.
+Set `addin.namespace` in the JSON file to choose the formula prefix, such as
+`"MyCompany"` for `=MyCompany.ADD(1,2)`. The default is `Jupyter`.
+Use 1-32 ASCII characters starting with a letter, followed by letters, digits,
+periods or underscores. Blank or invalid values are rejected at startup.
+Restart Jupyter and reload the updated manifest in Excel after changing it.
+Function IDs and API endpoints remain unchanged; existing workbook formulas
+are not automatically renamed.
 
 ## Documentation
 

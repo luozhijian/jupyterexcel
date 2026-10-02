@@ -7,32 +7,29 @@ from jupyterexcel.hub_autostart import configure_autostart, ensure_server, parse
 
 
 class AutostartTests(unittest.IsolatedAsyncioTestCase):
-    async def test_config_and_environment_precedence(self):
+    async def test_json_service_preserves_existing_hook(self):
+        import json
+        import tempfile
+        from pathlib import Path
         config = Config()
         previous = AsyncMock()
         config.Spawner.pre_spawn_hook = previous
         config.JupyterHub.services = [{'name': 'existing'}]
-        configure_autostart(config, {'JUPYTEREXCEL_AUTO_START_USERS': 'alice,bob'})
-        self.assertEqual(len(config.JupyterHub.services), 2)
-        self.assertEqual(config.JupyterHub.load_roles[0]['scopes'],
-                         ['read:servers!user=alice', 'servers!user=alice',
-                          'read:servers!user=bob', 'servers!user=bob'])
-        for user, name, initial, expected in [
-            ('alice', '', {}, {'JUPYTEREXCEL_KEEP_KERNEL_READY': '1'}),
-            ('bob', '', {'JUPYTEREXCEL_KEEP_KERNEL_READY': '0'}, {'JUPYTEREXCEL_KEEP_KERNEL_READY': '0'}),
-            ('other', '', {}, {}), ('alice', 'named', {}, {})]:
-            spawner = SimpleNamespace(user=SimpleNamespace(name=user), name=name, environment=initial)
-            await config.Spawner.pre_spawn_hook(spawner)
-            self.assertEqual(spawner.environment, expected)
-        self.assertEqual(previous.await_count, 4)
-
-    async def test_hub_explicit_override(self):
-        config = Config()
-        configure_autostart(config, {'JUPYTEREXCEL_AUTO_START_USERS': 'alice',
-                                    'JUPYTEREXCEL_KEEP_KERNEL_READY': '0'})
-        spawner = SimpleNamespace(user=SimpleNamespace(name='alice'), name='', environment={})
-        await config.Spawner.pre_spawn_hook(spawner)
-        self.assertEqual(spawner.environment['JUPYTEREXCEL_KEEP_KERNEL_READY'], '0')
+        with tempfile.TemporaryDirectory() as directory:
+            file = Path(directory) / 'settings.json'
+            file.write_text(json.dumps({'server': {'public_url': 'https://api.example'},
+                'assets': {'directory': directory, 'url': 'https://assets.example'},
+                'hub': {'auto_start_users': ['alice', 'bob']}}))
+            configure_autostart(config, str(file))
+            self.assertEqual(len(config.JupyterHub.services), 2)
+            self.assertEqual(config.JupyterHub.services[1]['environment'],
+                             {'JUPYTEREXCEL_CONFIG_FILE': str(file.resolve())})
+            self.assertEqual(config.JupyterHub.load_roles[0]['scopes'],
+                ['read:servers!user=alice', 'servers!user=alice',
+                 'read:servers!user=bob', 'servers!user=bob'])
+            self.assertIs(config.Spawner.pre_spawn_hook, previous)
+            with self.assertRaisesRegex(ValueError, 'already configured'):
+                configure_autostart(config, str(file))
 
     async def test_ready_pending_and_stopped(self):
         for state, count, ready in [({'ready': True}, 1, True),
@@ -45,11 +42,13 @@ class AutostartTests(unittest.IsolatedAsyncioTestCase):
 
     def test_disabled_and_validation(self):
         config = Config()
-        configure_autostart(config, {})
+        from unittest.mock import patch
+        with patch('jupyterexcel.hub_autostart.load_config', return_value={'config': {'hub': {'auto_start_users': []}}}):
+            configure_autostart(config)
         self.assertEqual(dict(config), {})
-        self.assertEqual(parse_users('alice, bob,alice'), ['alice', 'bob'])
+        self.assertEqual(parse_users(['alice', 'bob', 'alice']), ['alice', 'bob'])
         with self.assertRaises(ValueError):
-            parse_users('alice:2')
+            parse_users(['alice:2'])
 
     async def test_failure_does_not_block_other_user(self):
         async def request(path, method='GET'):

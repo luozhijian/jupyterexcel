@@ -122,7 +122,7 @@ class ActionNotebookTests(unittest.IsolatedAsyncioTestCase):
         import logging
         from jupyterexcel.assets import AssetStore
         import xml.etree.ElementTree as ET
-        notebook = json.loads((Path(__file__).resolve().parents[1]/'examples/SumGroupByColor.ipynb').read_text())
+        notebook = json.loads((Path(__file__).resolve().parents[1]/'RibbonFunctions.ipynb').read_text(encoding='utf-8'))
         class Contents:
             async def get(self,path,content=True):
                 if not path: return {'type':'directory','content':[{'type':'notebook','path':'demo.ipynb'}]}
@@ -132,8 +132,9 @@ class ActionNotebookTests(unittest.IsolatedAsyncioTestCase):
             store = AssetStore(app,output_dir=directory,asset_url='https://assets.example/addin')
             await store.generate()
             catalog=json.loads((Path(directory)/'actions.json').read_text())
-            self.assertEqual(catalog['actions'][0]['id'],'SUM.GROUP.BY.COLOR')
-            self.assertEqual(catalog['actions'][0]['button_text'],'Calculate')
+            actions = {action['id']: action for action in catalog['actions']}
+            self.assertIn('SUM.GROUP.BY.COLOR', actions)
+            self.assertEqual(actions['SUM.GROUP.BY.COLOR']['button_text'], 'Calculate')
             self.assertEqual({f['id'] for f in json.loads((Path(directory)/'functions.json').read_text())['functions']},
                              {'MANIFESTURL', 'SERVERURL', 'ADDINVERSION', 'ASSETVERSION', 'RTTIMER', 'RTNOW', 'RTRAND', 'RTRANDARRAY', 'RTRANDBETWEEN', 'RTCOUNT', 'RTELAPSED', 'RTCOUNTDOWN'})
             manifest=ET.parse(Path(directory)/'manifest.xml')

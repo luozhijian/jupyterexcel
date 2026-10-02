@@ -17,6 +17,31 @@ async def resolved(value):
     return await value if inspect.isawaitable(value) else value
 
 
+async def kernel_states(manager):
+    """Read scheduling state without serializing Jupyter activity metadata.
+
+    A newly registered ServerKernelManager can have no last_activity yet.
+    list_kernels() serializes that trait and can fail for the entire collection.
+    Keep initializing kernels visible, but never mark them idle prematurely.
+    """
+    if not callable(getattr(manager, 'list_kernel_ids', None)):
+        return await resolved(manager.list_kernels())
+    from tornado.web import HTTPError
+    models = []
+    for kernel_id in await resolved(manager.list_kernel_ids()):
+        try:
+            kernel = manager.get_kernel(kernel_id)
+        except KeyError:
+            continue  # Removed between listing and lookup.
+        except HTTPError as error:
+            if error.status_code != 404:
+                raise
+            continue
+        models.append({'id': kernel_id,
+                       'execution_state': getattr(kernel, 'execution_state', None) or 'starting'})
+    return models
+
+
 def invoke_export(function_id, inputs, action=None):
     """Runs inside the kernel; never evaluate a caller-supplied expression."""
     from IPython import get_ipython
@@ -68,8 +93,9 @@ class KernelExecutor:
 
     async def execute(self, function_id, inputs, idle_only=False, action=None):
         async with self.lock:
-            models = await resolved(self.manager.list_kernels())
-            eligible = [m for m in models if not idle_only or m.get('execution_state') == 'idle']
+            models = await kernel_states(self.manager)
+            eligible = [m for m in models if m.get('execution_state') not in (None, 'starting')
+                        and (not idle_only or m.get('execution_state') == 'idle')]
             if not eligible:
                 raise ExecutionError(503, 'no_kernel', 'No idle kernel available.' if idle_only else 'No kernel available.')
             # Single-user mode means first available, not first unreserved.
@@ -127,7 +153,7 @@ class SharedKernelExecutor:
             return False
         async with self.lock:
             if self.kernel_id:
-                models = await resolved(self.manager.list_kernels())
+                models = await kernel_states(self.manager)
                 model = next((m for m in models if m['id'] == self.kernel_id), None)
                 if model and model.get('execution_state') == 'busy':
                     return False
@@ -141,7 +167,7 @@ class SharedKernelExecutor:
             return True
 
     async def _ensure_kernel(self):
-        models = await resolved(self.manager.list_kernels())
+        models = await kernel_states(self.manager)
         if self.kernel_id and any(model['id'] == self.kernel_id for model in models):
             return self.kernel_id
         existing = await resolved(self.sessions.list_sessions())
@@ -204,7 +230,7 @@ class SharedKernelExecutor:
             kernel_id = await self._ensure_kernel()
             deadline = asyncio.get_running_loop().time() + self.timeout
             while True:
-                models = await resolved(self.manager.list_kernels())
+                models = await kernel_states(self.manager)
                 model = next((m for m in models if m['id'] == kernel_id), None)
                 if model is None:
                     if asyncio.get_running_loop().time() >= deadline:
@@ -288,6 +314,10 @@ if _jupyterexcel_was_initialized:
             if not _jupyterexcel_result.success:
                 raise RuntimeError('Notebook reload failed: %%s, cell %%s; earlier cells may have changed kernel state' %% (_jupyterexcel_path, _jupyterexcel_index))
 """ % json.dumps(selected)
+            snapshot = getattr(self.contents, '_jupyterexcel_config', None)
+            if snapshot is not None:
+                code = ('import jupyterexcel.config as _jupyterexcel_config_module\n'
+                        '_jupyterexcel_config_module._kernel_snapshot = ' + repr(snapshot) + '\n') + code
             await asyncio.wait_for(run(code), self.timeout)
             if owned:
                 # A shell reply can precede the manager's IOPub idle update.
@@ -295,7 +325,7 @@ if _jupyterexcel_was_initialized:
                 async def wait_idle():
                     stable = 0
                     while stable < 2:
-                        models = await resolved(self.manager.list_kernels())
+                        models = await kernel_states(self.manager)
                         model = next((m for m in models if m['id'] == kernel_id), None)
                         if model is None:
                             raise ExecutionError(503, 'kernel_lost', 'Kernel stopped during initialization.')
@@ -316,7 +346,7 @@ if _jupyterexcel_was_initialized:
     async def execute(self, function_id, inputs, idle_only=False, action=None):
         async with self.lock:
             kernel_id = await self._ensure_kernel()
-            models = await resolved(self.manager.list_kernels())
+            models = await kernel_states(self.manager)
             model = next(model for model in models if model['id'] == kernel_id)
             if model.get('execution_state') == 'busy':
                 raise ExecutionError(
