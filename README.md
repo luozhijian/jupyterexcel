@@ -136,6 +136,10 @@ the loaded server snapshot and detects edits requiring a restart.
 
 The examples below use standalone JupyterLab on Windows and multi-user JupyterHub on Linux, so their configuration differs.
 
+For Linux, no additional settings are required unless you need to boot a specific kernel to improve initial response times. See: configure_autostart.
+
+For Windows, you will need to complete the following additional configuration steps in addition to configure_autostart.
+
 Follow the [Jupyter server configuration guide](https://jupyter-notebook.readthedocs.io/en/stable/public_server.html), or generate a server configuration file with:
 ```
     jupyter server --generate-config
