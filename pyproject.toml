@@ -46,6 +46,9 @@ exclude = [
 
 [tool.setuptools.package-data]
 jupyterexcel = [
+    "jsdoc_parser.bundle.cjs",
+    "jsdoc_parser.cjs",
+    "parser_licenses/*",
     "addin_template/*",
     "addin_template/assets/*",
     "labextension/package.json",

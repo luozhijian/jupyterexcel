@@ -97,7 +97,7 @@ class KeeperTests(unittest.IsolatedAsyncioTestCase):
                     web_app=SimpleNamespace(settings={}, add_handlers=Mock()))
                 with patch.dict(os.environ, {}), \
                      patch('jupyterexcel.config.load_config', return_value={'path': 'test.json', 'source': 'test', 'config': {'assets': {'directory': str(root)}, 'execution': {'timeout_seconds': 30}}}), patch.object(AssetStore, 'schedule'), \
-                     patch('jupyterexcel.server_extension.KernelPoolExecutor') as pool:
+                     patch('jupyterexcel.server_extension.ProfileExecutor') as pool:
                     load_jupyter_server_extension(app)
                     load_jupyter_server_extension(app)
                     pool.assert_called_once()

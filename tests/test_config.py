@@ -73,7 +73,7 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
                  ('assets', {'directory': '', 'url': 'https://assets.example'}),
                  ('server', {'public_url': 'http://api.example'}),
                  ('server', {'public_url': 'https://user:secret@api.example'}),
-                 ('addin', {'namespace': 'bad name'}), ('execution', {'min_kernels': 0}),
+                 ('addin', {'namespace': 'bad name'}), ('execution', {'min_kernels': -1}),
                  ('execution', {'min_kernels': True}), ('execution', {'max_kernels': 0.5}),
                  ('execution', {'min_kernels': 5, 'max_kernels': 4}),
                  ('execution', {'keep_kernel_ready': False}),
@@ -92,15 +92,17 @@ class ConfigurationTests(unittest.IsolatedAsyncioTestCase):
         app = SimpleNamespace(contents_manager=cm, log=logging.getLogger('test'),
                               kernel_manager=object(), session_manager=object(),
                               web_app=SimpleNamespace(settings={}, add_handlers=Mock()))
-        with patch('jupyterexcel.assets.AssetStore.schedule'), patch('jupyterexcel.server_extension.KernelPoolExecutor') as pool:
+        with patch('jupyterexcel.assets.AssetStore.schedule'), patch('jupyterexcel.server_extension.ProfileExecutor') as pool:
             load_jupyter_server_extension(app)
             load_jupyter_server_extension(app)
             pool.assert_called_once()
-            self.assertEqual(pool.call_args.kwargs['timeout'], 30)
+            self.assertEqual(pool.call_args.args[-1]['timeout_seconds'], 30)
             pool.return_value.install.assert_called_once()
         snapshot = app.web_app.settings['jupyterexcel_config']
         self.assertIs(cm._jupyterexcel_config, snapshot)
         store = app.web_app.settings['jupyterexcel_asset_store']
+        self.assertIs(store.profile_warnings,
+                      app.web_app.settings['jupyterexcel_executor'].profile_warnings)
         self.assertEqual(store.config['server']['public_url'], self.values['server']['public_url'])
         self.values['execution'] = {'min_kernels': 3}
         self.write()

@@ -193,11 +193,18 @@ class SharedKernelExecutor:
         seen = set()
 
         from .discovery import selected_notebooks
+        from .discovery import read_project_config
+        from .profiles import validate_profiles, resolve_profile
+        config, _ = await read_project_config(self.contents)
+        profiles, defaults, _ = validate_profiles(config.get('execution', {}))
         for path, model in await selected_notebooks(self.contents):
             functions = [
                 function for function in scan_notebook(model['content'], path)
-                if function.kind == 'jupyter' or function.action
+                if function.language == 'python' and (function.kind == 'jupyter' or function.action)
             ]
+            legacy = not any(key in config.get('execution', {}) for key in ('profiles', 'defaults', 'default_profiles', 'total_max_kernels'))
+            functions = [function for function in functions
+                         if resolve_profile(function, model['content'], profiles, defaults, legacy) == 'python-default']
             for function in functions:
                 key = function.function_id
                 if key in seen:

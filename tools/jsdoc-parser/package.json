@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {"build": "node build.cjs"},
+  "dependencies": {
+    "acorn": "^8.15.0",
+    "doctrine": "^3.0.0",
+    "esbuild": "^0.25.10",
+    "eslint-scope": "^8.4.0"
+  }
+}

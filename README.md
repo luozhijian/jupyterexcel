@@ -1,5 +1,14 @@
 ## jupyterexcel Package
 
+[Execution profiles](Markdowns/EXECUTION_PROFILES.md) select Python venvs and
+JavaScript kernels using `@execution_profile` / `@executionProfile`, with separate
+pool limits, validated kernelspec routing, and profile status.
+
+JavaScript/Deno notebooks can export JSDoc-annotated functions with
+`@excelFunction` or `@ribbonFunction` and `@execution local|server`.
+See [JavaScript notebook exports](Markdowns/JAVASCRIPT_NOTEBOOKS.md) for setup,
+generated input forms and help, supported types, and execution limits.
+
 ### Office.js add-in generation
 
 When the JupyterExcel server extension starts, it scans every notebook visible
@@ -99,7 +108,7 @@ Then run the following command to check whether `jupyterexcel` is already enable
 ## Configuration
 
 JupyterExcel reads all settings from one `jupyterexcel-config.json` file.
-Use the [complete example](jupyterexcel-config.json) and adjust its URLs and
+Use the [Windows example](jupyterexcel-config.json) or the [Linux example](jupyterexcel-config-linux.json) and adjust its URLs and
 asset directory to your deployment. See [configuration details](Markdowns/CONFIGURATION.md).
 
 By default, the file is in the Jupyter server's notebook root. To use a central
@@ -109,7 +118,7 @@ file regardless of the launch folder, set the only JupyterExcel environment vari
 $env:JUPYTEREXCEL_CONFIG_FILE = "C:/JupyterExcel/jupyterexcel-config.json"
 ```
 
-The path must be absolute. An explicit missing or invalid file is an error;
+The path must be absolute. An explicitly specified file that is missing or invalid causes an error;
 there is no fallback or merging. Restart Jupyter after changing configuration.
 The server starts and maintains `execution.min_kernels` service kernels
 (default 1). There is no separate keep-ready switch.
@@ -121,7 +130,7 @@ jupyterexcel.show_config()
 
 Inspection prints the file path, selection source, and full effective settings.
 An ordinary Python session previews the file; a managed service kernel shows
-the loaded server snapshot and detects edits requiring restart.
+the loaded server snapshot and detects edits requiring a restart.
 
 ## Server settings
 
@@ -243,7 +252,7 @@ server {
 Each user server reads its own notebook-root JSON by default. Alternatively,
 set `JUPYTEREXCEL_CONFIG_FILE` in that user's Spawner environment to select a
 central file. Set `server.public_url` to that user's complete public API URL;
-there is no automatic username substitution. Asset directory and URL still
+there is no automatic username substitution. The asset directory and URL still
 receive an encoded username suffix on Hub. The Hub autostart helper reads its
 own administrator-selected file and does not overwrite users' configuration.
 

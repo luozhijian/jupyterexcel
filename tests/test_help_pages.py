@@ -56,7 +56,8 @@ def ribbon(): pass
         self.assertIn('Repeating argument', (self.store.root / 'help/functions/string.join.html').read_text())
         self.assertFalse((self.store.root / 'help/functions/Ribbon.html').exists())
         state = json.loads((self.store.root / 'current.json').read_text())
-        self.assertFalse(any(name.startswith('help/') for name in state['files']))
+        self.assertFalse(any(name.startswith('help/functions/') for name in state['files']))
+        self.assertIn('help/generated/string_join.html', state['files'])
         self.assertFalse((self.store.root / 'help_template.html').exists())
 
     async def test_preserve_edits_repair_missing_and_keep_removed_pages(self):

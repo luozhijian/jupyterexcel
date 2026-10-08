@@ -35,9 +35,11 @@ def validate_execution(supplied):
 
     diff_setting = set(supplied) - EXECUTION_DEFAULTS.keys()
     if diff_setting:
-        logging.warning('jupyterexcel-config.json: unknown execution settings: %s', ', '.join(diff_setting))        
+        raise ValueError('Unknown execution settings: ' + ', '.join(sorted(diff_setting)))
     settings = dict(EXECUTION_DEFAULTS, **supplied)
     for key, value in settings.items():
+        if key == 'min_kernels' and type(value) is int and value == 0:
+            continue
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
             raise ValueError('execution.' + key + ' must be a positive finite number.')
     for key in ('min_kernels', 'max_kernels', 'max_queue_size'):
@@ -65,7 +67,10 @@ def validate(config, path):
     for section, values in config.items():
         if section == 'schema_version':
             continue
-        if not isinstance(values, dict) or set(values) - DEFAULTS[section].keys():
+        allowed = set(DEFAULTS[section])
+        if section == 'execution':
+            allowed |= {'profiles', 'defaults', 'default_profiles', 'total_max_kernels'}
+        if not isinstance(values, dict) or set(values) - allowed:
             raise ValueError('Unknown or invalid settings in ' + section + '.')
         result[section].update(copy.deepcopy(values))
     for section, key in [('server', 'public_url'), ('assets', 'url')]:
@@ -93,7 +98,11 @@ def validate(config, path):
     _includes(result)
     for entry in result['discovery']['include']:
         entry.setdefault('recursive', False)
-    result['execution'] = validate_execution(result['execution'])
+    execution = result['execution']
+    result['execution'] = dict(validate_execution({key: execution[key] for key in EXECUTION_DEFAULTS}),
+                               **{key: execution[key] for key in ('profiles', 'defaults', 'default_profiles', 'total_max_kernels') if key in execution})
+    from .profiles import validate_profiles
+    validate_profiles(result['execution'])
     result['hub']['auto_start_users'] = validate_users(result['hub']['auto_start_users'])
     return result
 

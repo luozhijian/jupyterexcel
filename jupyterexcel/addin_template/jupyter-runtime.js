@@ -288,7 +288,7 @@ async function call(endpoint, suppliedArgs, action = false) {
     });
     text = await response.text();
     } catch (error) {
-      if (action && error.name === 'AbortError') throw new Error('Request timed out. Python may still be running; do not retry automatically.');
+      if (action && error.name === 'AbortError') throw new Error('Request timed out. Server code may still be running; do not retry automatically.');
       throw error;
     } finally { if (timer) clearTimeout(timer); }
     if (response.status === 401 || response.status === 403) rejectedToken = auth.token;

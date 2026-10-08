@@ -54,7 +54,8 @@ Office.onReady(() => {
     document.getElementById('jupyter-status-summary').textContent =
       `Connected | ${data.kernels.length}/${data.settings.max_kernels} kernels | ${counts.idle || 0} idle | ${counts.busy || 0} busy | ${counts.starting || 0} starting | ${counts.unavailable || 0} unavailable. ` +
       `Busy time: ${percent(data.utilization)} over ${data.settings.utilization_window_seconds}s. ` +
-      `Queue: ${data.queued_requests}; oldest wait: ${data.oldest_wait_seconds.toFixed(1)}s. ${data.scaling_status}.`;
+      `Queue: ${data.queued_requests}; oldest wait: ${data.oldest_wait_seconds.toFixed(1)}s. ${data.scaling_status}.` +
+      (data.profiles ? '\n' + data.profiles.map(profile => `${profile.profile}: ${profile.kernels.length}/${profile.settings.max_kernels} kernels, ${profile.queued_requests} queued`).join(' | ') : '');
     const body = document.getElementById('jupyter-status-rows');
     body.replaceChildren();
     for (const kernel of data.kernels) {

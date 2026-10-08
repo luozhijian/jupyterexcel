@@ -15,7 +15,7 @@ except ImportError:
 from .assets import AssetStore
 from .execution import ExecutionError, SharedKernelExecutor
 from .reload_handler import ReloadNotebookHandler
-from .kernel_pool import KernelPoolExecutor
+from .profile_executor import ProfileExecutor
 from .status_handler import JupyterStatusHandler
 
 
@@ -45,6 +45,17 @@ class ExcelModeHandler(APIHandler):
         await self.call(function_id, self.request.body)
 
     async def execute_export(self, function_id, params):
+        if hasattr(self.executor, 'execute_version'):
+            return await self.executor.execute_version(function_id, params, idle_only=bool(self.hub_user),
+                       action=False if self.request.method == 'GET' else None,
+                       version=self.get_query_argument('version', None))
+        javascript = getattr(self.executor, 'javascript', None)
+        if javascript is not None:
+            result = await javascript.execute(function_id, params,
+                       action=False if self.request.method == 'GET' else None,
+                       version=self.get_query_argument('version', None))
+            if result is not None:
+                return result
         return await self.executor.execute(function_id, params, idle_only=bool(self.hub_user),
                                            **({"action": False} if self.request.method == "GET" else {}))
 
@@ -107,8 +118,9 @@ def load_jupyter_server_extension(app):
     app.log.info('JupyterExcel configuration: %s (%s)', snapshot['path'], snapshot['source'])
     hub_user = os.environ.get('JUPYTERHUB_USER')
     store = AssetStore(app, username=hub_user)
-    executor = KernelPoolExecutor(app.kernel_manager, app.session_manager, app.contents_manager,
-                                    hub_user or getpass.getuser(), timeout=snapshot['config']['execution']['timeout_seconds'])
+    executor = ProfileExecutor(app.kernel_manager, app.session_manager, app.contents_manager,
+                               hub_user or getpass.getuser(), snapshot['config']['execution'])
+    executor.profile_warnings = store.profile_warnings
     settings['jupyterexcel_asset_store'] = store
     settings['jupyterexcel_executor'] = executor
     executor.install(app.log)

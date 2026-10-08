@@ -44,7 +44,11 @@ class ReloadNotebookHandler(APIHandler):
                 raise ExecutionError(400, 'notebook_required', 'Select a saved notebook.')
             # No-op generation is successful. A publication failure prevents execution.
             changed = await self.store.generate()
-            kernel_id = await self.executor.reload_notebook(path)
+            from .javascript import is_javascript
+            if getattr(self.executor, 'javascript', None) and is_javascript(model.get('content', {})):
+                kernel_id = await self.executor.javascript.reload_notebook(path)
+            else:
+                kernel_id = await self.executor.reload_notebook(path)
             self.finish({'ok': True, 'path': path, 'kernel_id': kernel_id,
                          'assets_changed': changed, 'asset_version': self.store.current})
         except ExecutionError as error:

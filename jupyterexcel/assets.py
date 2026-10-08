@@ -23,6 +23,8 @@ def version_stamp(now):
 class AssetStore:
     def __init__(self, app, template_dir=None, username=None, output_dir=None, asset_url=None):
         self.app = app
+        from .profiles import ProfileWarnings
+        self.profile_warnings = ProfileWarnings(getattr(app, 'log', None))
         snapshot = getattr(getattr(app, 'contents_manager', None), '_jupyterexcel_config', None)
         self.config = snapshot['config'] if snapshot is not None else {}
         self.templates = Path(template_dir or Path(__file__).parent / 'addin_template')
@@ -54,7 +56,14 @@ class AssetStore:
         found = []
         from .discovery import selected_notebooks
         for path, model in await selected_notebooks(self.app.contents_manager):
-            found.extend(scan_notebook(model['content'], path))
+            functions = scan_notebook(model['content'], path)
+            from .profiles import validate_profiles
+            profiles, defaults, _ = validate_profiles(self.config.get('execution', {}))
+            for function in functions:
+                if function.execution == 'server':
+                    legacy = not any(key in self.config.get('execution', {}) for key in ('profiles', 'defaults', 'default_profiles', 'total_max_kernels'))
+                    function.resolved_profile = self.profile_warnings.resolve(function, model['content'], profiles, defaults, legacy)
+            found.extend(functions)
         ids = [f.function_id.casefold() for f in found if f.kind == 'jupyter']
         if any(not x for x in ids):
             raise ValueError('Worksheet function IDs must be nonempty.')
@@ -102,7 +111,7 @@ class AssetStore:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target)
         (batch / 'actions.json').write_text(json.dumps({'version': 1, 'actions': [
-            dict(f.action, notebook=f.notebook) for f in functions if f.action
+            dict(f.action, notebook=f.notebook, help_url='help/generated/' + quote(f.function_id, safe='') + '.html') for f in functions if f.kind == 'ribbon' and f.action
         ]}), encoding='utf-8')
         base = public_url(self.app)
         from . import __version__
@@ -117,6 +126,10 @@ class AssetStore:
         metadata['functions'].extend(builtin)
         for entry in metadata['functions']:
             entry['helpUrl'] = self._asset_base_url() + '/help/functions/' + quote(entry['id'], safe='') + '.html'
+            if any(f.function_id == entry['id'] and f.language == 'javascript' for f in functions):
+                entry['helpUrl'] = self._asset_base_url() + '/help/generated/' + quote(entry['id'], safe='') + '.html'
+        from .jsdoc_help import generate_help
+        generate_help(batch, functions, namespace)
         script = functions_javascript(functions, base, template_dir=self.templates, hub_user=self.username, diagnostics=diagnostics)
         # Bundle the runtime template and generated registrations for Excel.
         (batch / 'functions.js').write_text(script, encoding='utf-8')

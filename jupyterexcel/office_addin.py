@@ -37,6 +37,14 @@ class NotebookFunction:
     kind: str = "jupyter"
     result_dimensionality: str = "scalar"
     action: dict = None
+    language: str = 'python'
+    execution: str = 'server'
+    source: str = ''
+    version: str = ''
+    documentation: dict = field(default_factory=dict)
+    form: dict = None
+    execution_profile: str = None
+    resolved_profile: str = None
 
     @property
     def function_id(self):
@@ -141,6 +149,13 @@ def _function_from_ast(node, decorator, notebook):
 
 
 def scan_notebook(notebook, path):
+    from .profiles import notebook_language, notebook_profile, profile_name
+    from .javascript import scan_javascript
+    language = notebook_language(notebook)
+    if language == 'javascript':
+        return scan_javascript(notebook, path)
+    if language != 'python':
+        return []
     found = []
     for cell in notebook.get("cells", []):
         if cell.get("cell_type") != "code":
@@ -158,6 +173,15 @@ def scan_notebook(notebook, path):
             for decorator in node.decorator_list:
                 item = _function_from_ast(node, decorator, path)
                 if item:
+                    declared = []
+                    for metadata in node.decorator_list:
+                        if _decorator_name(metadata) == 'execution_profile':
+                            if not isinstance(metadata, ast.Call) or len(metadata.args) != 1 or metadata.keywords:
+                                raise ValueError(path + ': use @execution_profile("profile-name").')
+                            declared.append(profile_name(_literal(metadata.args[0])))
+                    if len(set(declared)) > 1:
+                        raise ValueError(path + ': conflicting execution profiles on ' + node.name)
+                    item.execution_profile = declared[0] if declared else notebook_profile(notebook)
                     found.append(item)
                     break
     return found
@@ -237,7 +261,10 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None, 
         if item.parameters and item.parameters[-1].repeating:
             index = len(item.parameters) - 1
             arguments = f'args.slice(0, {index}).concat(args[{index}] || [])'
-        registrations.append('CustomFunctions.associate(%s, (...args) => jupyterExcelCall(%s, %s));' % (json.dumps(item.function_id), json.dumps(endpoint), arguments))
+        if item.language == 'javascript':
+            registrations.append('CustomFunctions.associate(%s, (...args) => globalThis.JupyterExcelJavaScript.call(%s, %s));' % (json.dumps(item.function_id), json.dumps(item.function_id), arguments))
+        else:
+            registrations.append('CustomFunctions.associate(%s, (...args) => jupyterExcelCall(%s, %s));' % (json.dumps(item.function_id), json.dumps(endpoint), arguments))
     for marker in ('{{FUNCTIONS_RUNTIME}}', '{{FUNCTION_REGISTRATIONS}}'):
         if template.count(marker) != 1:
             raise ValueError('functions.js template must contain exactly one ' + marker)
@@ -246,6 +273,8 @@ def functions_javascript(functions, base_url, template_dir=None, hub_user=None, 
     builtin = templates / 'builtin-functions.js'
     if builtin.exists():
         registrations.insert(0, builtin.read_text(encoding='utf-8'))
+    from .javascript import browser_exports
+    registrations.insert(0, browser_exports(functions, base_url))
     prefix = 'globalThis.JupyterExcelConfig = ' + json.dumps(config) + ';\n'
     return prefix + template.replace('{{FUNCTIONS_RUNTIME}}', runtime).replace('{{FUNCTION_REGISTRATIONS}}', '\n'.join(registrations))
 

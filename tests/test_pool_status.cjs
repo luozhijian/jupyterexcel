@@ -13,8 +13,10 @@ test('status polling renders text and stops when hidden or unauthorized', () => 
   const requestId=messages.at(-1).requestId;
   const configuration = {path:'C:/settings/<config>.json',source:'JUPYTEREXCEL_CONFIG_FILE',restart_required:true,config:{execution:{min_kernels:1}}};
   const status = {sampled_at:'2026-10-01T18:00:00Z',configuration,settings:{max_kernels:4,utilization_window_seconds:5},utilization:.85,queued_requests:2,oldest_wait_seconds:1.2,scaling_status:'Starting a kernel',kernels:[{name:'Kernel 1',status:'busy',utilization:.85,current_function:'<script>x</script>',completed_calls:4,failed_calls:0}]};
+  status.profiles = [{profile:'python-finance', kernels:status.kernels, settings:{max_kernels:2}, queued_requests:2}];
   receive({origin:'https://assets',message:JSON.stringify({type:'jupyter-status-result',requestId,status})});
   assert.match(nodes['jupyter-status-summary'].textContent,/85%/);
+  assert.match(nodes['jupyter-status-summary'].textContent,/python-finance: 1\/2 kernels, 2 queued/);
   assert.match(nodes['jupyter-status-message'].textContent, /^Server snapshot: /);
   const shown = nodes['jupyter-status-config'].textContent;
   assert.ok(shown.includes('Configuration file: C:/settings/<config>.json'));

@@ -19,16 +19,41 @@
     ]
   }, 
   "execution": {
-    "min_kernels": 2,
-    "max_kernels": 4,
-    "timeout_seconds": 30,
-    "startup_timeout_seconds": 60,
-    "queue_timeout_seconds": 30,
-    "max_queue_size": 1000,
-    "scale_up_utilization": 0.8,
-    "utilization_window_seconds": 5,
-    "queue_scale_up_after_seconds": 1,
-    "scale_up_cooldown_seconds": 1
+    "defaults": {
+      "timeout_seconds": 30,
+      "startup_timeout_seconds": 60,
+      "queue_timeout_seconds": 30,
+      "max_queue_size": 1000,
+      "scale_up_utilization": 0.8,
+      "utilization_window_seconds": 5,
+      "queue_scale_up_after_seconds": 1,
+      "scale_up_cooldown_seconds": 1
+    },
+    "total_max_kernels": 10,
+    "default_profiles": {
+      "python": "python-default",
+      "javascript": "javascript"
+    },
+    "profiles": {
+      "python-default": {
+        "language": "python",
+        "kernel_name": "python3",
+        "min_kernels": 3,
+        "max_kernels": 6
+      },
+      "python-finance": {
+        "language": "python",
+        "kernel_name": "finance-venv",
+        "min_kernels": 0,
+        "max_kernels": 2
+      },
+      "javascript": {
+        "language": "javascript",
+        "kernel_name": "deno",
+        "min_kernels": 2,
+        "max_kernels": 3
+      }
+    }
   },
   "hub": {
     "auto_start_users": []

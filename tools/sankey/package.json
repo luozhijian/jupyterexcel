@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {"build": "node build.cjs"},
+  "dependencies": {"d3-sankey": "0.12.3"},
+  "devDependencies": {"esbuild": "0.25.10"}
+}

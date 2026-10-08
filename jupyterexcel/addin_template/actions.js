@@ -22,13 +22,14 @@
       a.column < b.column+b.columns && b.column < a.column+a.columns;
   }
   function parseValue(field, input) {
+    if (field.optional && !input.value.trim() && field.type !== 'boolean') return field.default;
     if (field.type === 'boolean') return input.checked;
     if (field.type === 'number') {
       if (!input.value.trim() || !Number.isFinite(Number(input.value))) throw new Error('Enter a valid number.');
       return Number(input.value);
     }
     if (field.type === 'matrix') return matrix(JSON.parse(input.value));
-    if (!input.value.length) throw new Error('Enter a value.');
+    if (!input.value.length && !field.javascript) throw new Error('Enter a value.');
     return input.value;
   }
   function cellBlock(value, columns) {
@@ -261,9 +262,15 @@
     const selected = action();
     $('action-target-label').hidden = !selected?.output.destinations.includes('range');
     $('action-description').textContent = selected?.description || '';
+    const help = $('action-help');
+    if (help) {
+      help.hidden = !selected?.help_url;
+      if (selected?.help_url) help.href = selected.help_url;
+    }
     $('action-run').textContent = selected?.button_text || 'Run';
     for (const field of selected?.inputs || []) {
       const container = element('section'); container.appendChild(element('strong', field.label || field.name));
+      if (field.description) container.appendChild(element('p', field.description));
       const group = {field, container, entries: []}; controls.push(group);
       $('action-inputs').appendChild(container); addEntry(group);
       if (field.repeatable) {
@@ -362,6 +369,7 @@
     if (!validInputs() || busy) return;
     stopSelection();
     const selected = action(), startedRevision = revision;
+    globalThis.JupyterExcel?.writeLog?.('INFO', 'Actions', 'action.started', selected.id);
     busy = true; result = null; updateButtons(); $('action-result').replaceChildren(); status('Reading inputs…');
     try {
       await inputMonitor.start(controls.flatMap(group => group.field.source === 'value' ? [] :
@@ -371,15 +379,26 @@
       for (const group of controls) {
         const values = [];
         for (const entry of group.entries) {
-          values.push(group.field.source === 'value' ? parseValue(group.field, entry.input) : await readReference(group.field, entry.reference));
+          values.push(group.field.reference_only ? JSON.stringify(entry.reference) :
+            group.field.source === 'value' ? parseValue(group.field, entry.input) : await readReference(group.field, entry.reference));
         }
         args.push(group.field.repeatable ? values : values[0]);
         if (group.field.source !== 'value') targets[group.field.name] = group.entries.map(e => ({...e.reference}));
       }
       if (revision !== startedRevision) throw new Error('Workbook changed while reading. Run again.');
-      status('Running Python…');
-      result = await globalThis.JupyterExcel.callAction(selected.id, args);
+      status(selected.execution === 'local' ? 'Running locally...' : 'Running on server...');
+      result = selected.javascript ? {result: await globalThis.JupyterExcelJavaScript.call(selected.id, args, selected.version)} :
+        await globalThis.JupyterExcel.callAction(selected.id, args);
       resultRevision = startedRevision;
+      if (selected.output.status_only) {
+        const message = result.result;
+        result = null;
+        for (const id of ['action-target-label', 'action-write', 'action-popup', 'action-updates']) $(id).hidden = true;
+        await stopMonitoring();
+        status(message);
+        globalThis.JupyterExcel?.writeLog?.('INFO', 'Actions', 'action.completed', selected.id);
+        return;
+      }
       $('action-result').appendChild(table(result.result, result.columns));
       const destinations = selected.output.destinations;
       for (const id of ['action-target-label','action-write']) $(id).hidden = !destinations.includes('range');
@@ -389,8 +408,13 @@
       if (selected.output.default === 'popup') showPopup();
     } catch (error) {
       result = null;
-      await stopMonitoring();
-      status(error.message + ' No automatic retry was performed.');
+      const message = error.message || String(error);
+      status(message + ' No automatic retry was performed.');
+      globalThis.JupyterExcel?.writeLog?.('ERROR', 'Actions', 'action.failed', selected.id + ': ' + message);
+      try { await stopMonitoring(); }
+      catch (cleanupError) {
+        globalThis.JupyterExcel?.writeLog?.('WARN', 'Actions', 'monitor.cleanup.failed', cleanupError.message || String(cleanupError));
+      }
     } finally { busy = false; updateButtons(); }
     if (result && resultRevision === revision && selected.output.default === 'range') {
       if (outputTarget) await write(false);

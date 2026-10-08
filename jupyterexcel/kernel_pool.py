@@ -100,6 +100,8 @@ class KernelPoolExecutor:
                                   startup_seconds=w.startup_seconds) for w in self.workers])
 
     async def _spawn(self):
+        if hasattr(self, 'capacity_available') and not self.capacity_available():
+            return
         self.serial += 1
         engine = SharedKernelExecutor(self.manager, self.sessions, self.contents, self.username,
                                       timeout=self.settings['startup_timeout_seconds'])
@@ -317,6 +319,8 @@ class KernelPoolExecutor:
                 self.reloading = False
 
     async def stop(self):
+        if getattr(self, 'javascript', None) is not None:
+            await self.javascript.stop()
         self.closed = True
         for request in self.queue:
             if not request.result.done():
