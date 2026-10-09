@@ -24,12 +24,12 @@ class ExcelModeHandler(APIHandler):
         self.executor, self.hub_user = executor, hub_user
 
     async def prepare(self):
-        print(
-            "Excel incoming: method=%s origin=%s requested_headers=%s" %(
-            self.request.method,
-            self.request.headers.get("Origin"),
-            self.request.headers.get("Access-Control-Request-Headers") )
-        )
+        # print(
+        #     "Excel incoming: method=%s origin=%s requested_headers=%s" %(
+        #     self.request.method,
+        #     self.request.headers.get("Origin"),
+        #     self.request.headers.get("Access-Control-Request-Headers") )
+        # )
         await super().prepare()
 
     @web.authenticated
