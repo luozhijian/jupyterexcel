@@ -330,14 +330,14 @@ before the Change Date. The full LICENSE controls; this is a summary.
 | Government-operated public schools, for their own students and staff | Free, regardless of user count |
 | Government-operated public universities, including hosting for anyone | Free for the university and all users of its hosted service, regardless of affiliation or user count |
 | Other government organizations | Separate commercial license required |
-| For-profit organizations, including for-profit schools, for internal purposes | Free for up to five distinct production users in any rolling 30-day period |
+| For-profit organizations, including for-profit schools, for internal purposes | Free for up to 20 distinct production users in any rolling 30-day period |
 | Other providers offering JupyterExcel as a hosted service to third parties | Separate commercial license required, regardless of user count or organization type |
 
 - Count people, including employees and contractors, across accounts and
   installations. Six people using one shared login still count as six.
 - A for-profit organization has a one-time **60-calendar-day grace period**
-  beginning when it first exceeds five production users. Afterward, obtain a
-  commercial license or return to the five-user rolling 30-day limit. The grace
+  beginning when it first exceeds 20 production users. Afterward, obtain a
+  commercial license or return to the 20-user rolling 30-day limit. The grace
   period does not reset with a new installation, version, or later increase.
 - The grace period does not permit excluded government or hosted-service use.
 - Government-operated public universities may host JupyterExcel for anyone,
