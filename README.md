@@ -1,15 +1,6 @@
 ## jupyterexcel Package
 
-[Execution profiles](Markdowns/EXECUTION_PROFILES.md) select Python venvs and
-JavaScript kernels using `@execution_profile` / `@executionProfile`, with separate
-pool limits, validated kernelspec routing, and profile status.
-
-JavaScript/Deno notebooks can export JSDoc-annotated functions with
-`@excelFunction` or `@ribbonFunction` and `@execution local|server`.
-See [JavaScript notebook exports](Markdowns/JAVASCRIPT_NOTEBOOKS.md) for setup,
-generated input forms and help, supported types, and execution limits.
-
-### Office.js add-in generation
+This Jupyter Server extension exposes functions in Jupyter notebooks through a REST API, allowing Excel to call them as worksheet formulas or task pane actions accessed from the ribbon. This version supports Python and JavaScript notebooks. JavaScript functions in notebooks can run locally within the Excel add-in javascript runtime only or calling back to the Jupyter server.
 
 When the JupyterExcel server extension starts, it scans every notebook visible
 to the current Jupyter user. Functions decorated with [jupyter_function](https://jupyterexcel.com/excel-addin/jupyter_function.html) are
@@ -26,6 +17,16 @@ def add(a, b=0):
     return a + b
 ```
 
+[Execution profiles](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/EXECUTION_PROFILES.md) select Python venvs and
+JavaScript kernels using `@execution_profile` / `@executionProfile`, with separate
+pool limits, validated kernelspec routing, and profile status.
+
+JavaScript/Deno notebooks can export JSDoc-annotated functions with
+`@excelFunction` or `@ribbonFunction` and `@execution local|server`.
+See [JavaScript notebook exports](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/JAVASCRIPT_NOTEBOOKS.md) for setup,
+generated input forms and help, supported types, and execution limits.
+
+
 ## Example
 
 The example uses a sample notebook containing a `Sum` function. You can download `JupyterFunctions.ipynb` from this folder or create your own notebook.
@@ -36,57 +37,6 @@ The following screenshot shows how Excel formulas work.
 The following screenshot shows how a ribbon callback function works.
 ![Jupyter Ribbon CallBack](https://github.com/luozhijian/jupyterexcel/raw/master/ExcelRibbonScreen.png)
 
-
-## How it works
-The `JupyterExcel` Python package exposes Jupyter notebook functions through REST API endpoints, such as https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM, with parameters sent as JSON in the POST body. The Excel add-in’s JavaScript runtime receives the function arguments, sends them to the Jupyter REST API using `fetch`, waits for the result, and sync it back to Excel. Ribbon actions and the task pane make similar calls.
-
-There are two types of URLs: one points to files that Excel downloads when loading the add-in (such as `manifest.xml`), and the other points to API endpoints that process Excel function calls. Examples of these two types of URLs are [https://jupyterexcel.com/**excel-addin**/jupyterhub/manifest.xml](https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml) and https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM. If you open https://jupyterexcel.com/excel-addin/jupyterhub/functions.json, you can see the description of the `Sum` function shown above. The `functions.json` file is one of the files generated from the notebook above by the JupyterExcel package.
-
-In the Linux setup, these two types of URLs appear to belong to one website, but they are handled by two different services. In the Nginx configuration, **excel-addin** is mapped to the folder `/var/www/jupyterexcel/excel-addin` where JupyterExcel stores the generated Excel add-in files when notebooks are saved. All other requests are forwarded to JupyterHub for processing.
-
-The Windows setup described here uses standalone, single-user JupyterLab, so the URL does not need the `/user/jupyterhub` segment. For example, the endpoint becomes https://www.jupyterexcel.com/Excel/SUM. This setup uses two sites: IIS serves the add-in files, such as https://localhost/functions.js or https://localhost/manifest.xml, and JupyterLab handles API requests at https://localhost:8888/. The URL https://localhost/functions.js does not need the **excel-addin** path segment because IIS serves these files as a separate website. In the Linux Nginx example, the **excel-addin** path distinguishes static-file requests from requests forwarded to JupyterHub. To allow the Excel add-in’s JavaScript runtime, which downloads and runs `functions.js` from https://localhost, to call the Jupyter service at https://localhost:8888/Excel, configure CORS.
-
-For your own setup, replace `www.jupyterexcel.com`, `localhost`, and the username `jupyterhub` as appropriate. These values are configured through the environment variables explained below.
-
-## Prerequisites
-
-JupyterExcel requires **Python 3.9 or later**. Installing the package with pip
-also installs these runtime dependencies automatically:
-
-| Package | Required version |
-| --- | --- |
-| `jupyter-server` | `>=2,<3` |
-| `jupyter-client` | `>=8,<9` |
-| `ipykernel` | `>=6,<8` |
-| `tornado` | `>=6.3` |
-
-For a working deployment, you also need:
-
-- A Python kernel registered as `python3`, which JupyterExcel currently uses.
-  Check it with `jupyter kernelspec list`.
-- JupyterLab 4 if you want to edit notebooks in JupyterLab and use the bundled
-  JupyterExcel toolbar extension. Install it separately with
-  `python -m pip install "jupyterlab>=4,<5"`.
-- JupyterHub only for a multi-user deployment; it is not required for standalone
-  JupyterLab. Install JupyterExcel in each user's server environment.
-- Any libraries imported by your notebooks, installed in the environment used
-  by the `python3` kernel. Streamlit and pandas are not required by JupyterExcel
-  itself.
-- Microsoft Excel with support for Office.js custom functions and SharedRuntime
-  1.1, and permission to load the add-in manifest.
-- An HTTPS static web server, such as IIS or Nginx, to serve the generated add-in
-  files, with a certificate trusted by the computer running Excel. Configure
-  `assets.directory` and `assets.url` in the JSON file as described below, and
-  make the Jupyter API reachable from Excel over HTTPS.
-
-Install JupyterExcel in the Jupyter server environment. If your `python3` kernel
-uses a separate virtual environment, install JupyterExcel there too so notebook
-imports of its decorators work.
-
-The `build` and `twine` packages are release tools, not runtime dependencies.
-Install them in a separate release environment when building or publishing the
-package. Node.js is needed to rebuild the frontend, but not to install the
-Python package with its prebuilt JupyterLab extension.
 
 ## Installation
 
@@ -108,8 +58,8 @@ Then run the following command to check whether `jupyterexcel` is already enable
 ## Configuration
 
 JupyterExcel reads all settings from one `jupyterexcel-config.json` file.
-Use the [Windows example](jupyterexcel-config.json) or the [Linux example](jupyterexcel-config-linux.json) and adjust its URLs and
-asset directory to your deployment. See [configuration details](Markdowns/CONFIGURATION.md).
+Use the [Windows example](https://github.com/luozhijian/jupyterexcel/blob/master/jupyterexcel-config.json) or the [Linux example](https://github.com/luozhijian/jupyterexcel/blob/master/jupyterexcel-config-linux.json) and adjust its URLs and
+asset directory to your deployment. See [configuration details](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/CONFIGURATION.md) and [How it works](#how-it-works).
 
 By default, the file is in the Jupyter server's notebook root. To use a central
 file regardless of the launch folder, set the only JupyterExcel environment variable:
@@ -136,9 +86,9 @@ the loaded server snapshot and detects edits requiring a restart.
 
 The examples below use standalone JupyterLab on Windows and multi-user JupyterHub on Linux, so their configuration differs.
 
-For Linux, no additional settings are required unless you need to boot a specific kernel to improve initial response times. See: configure_autostart.
+For Linux, no additional settings are required unless you need to boot a specific kernel to improve initial response times. See `configure_autostart` below.
 
-For Windows, you will need to complete the following additional configuration steps in addition to configure_autostart.
+For Windows, you will also need to complete the following configuration steps.
 
 Follow the [Jupyter server configuration guide](https://jupyter-notebook.readthedocs.io/en/stable/public_server.html), or generate a server configuration file with:
 ```
@@ -293,6 +243,58 @@ periods or underscores. Blank or invalid values are rejected at startup.
 Restart Jupyter and reload the updated manifest in Excel after changing it.
 Function IDs and API endpoints remain unchanged; existing workbook formulas
 are not automatically renamed.
+
+
+## How it works
+The `JupyterExcel` Python package exposes Jupyter notebook functions through REST API endpoints, such as https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM, with parameters sent as JSON in the POST body. The Excel add-in’s JavaScript runtime receives the function arguments, sends them to the Jupyter REST API using `fetch`, waits for the result, and sync it back to Excel. Ribbon actions and the task pane make similar calls.
+
+There are two types of URLs: one points to files that Excel downloads when loading the add-in (such as `manifest.xml`), and the other points to API endpoints that process Excel function calls. Examples of these two types of URLs are [https://jupyterexcel.com/**excel-addin**/jupyterhub/manifest.xml](https://jupyterexcel.com/excel-addin/jupyterhub/manifest.xml) and https://www.jupyterexcel.com/user/jupyterhub/Excel/SUM. If you open https://jupyterexcel.com/excel-addin/jupyterhub/functions.json, you can see the description of the `Sum` function shown above. The `functions.json` file is one of the files generated from the notebook above by the JupyterExcel package.
+
+In the Linux setup, these two types of URLs appear to belong to one website, but they are handled by two different services. In the Nginx configuration, **excel-addin** is mapped to the folder `/var/www/jupyterexcel/excel-addin` where JupyterExcel stores the generated Excel add-in files when notebooks are saved. All other requests are forwarded to JupyterHub for processing.
+
+The Windows setup described here uses standalone, single-user JupyterLab, so the URL does not need the `/user/jupyterhub` segment. For example, the endpoint becomes https://www.jupyterexcel.com/Excel/SUM. This setup uses two sites: IIS serves the add-in files, such as https://localhost/functions.js or https://localhost/manifest.xml, and JupyterLab handles API requests at https://localhost:8888/. The URL https://localhost/functions.js does not need the **excel-addin** path segment because IIS serves these files as a separate website. In the Linux Nginx example, the **excel-addin** path distinguishes static-file requests from requests forwarded to JupyterHub. To allow the Excel add-in’s JavaScript runtime, which downloads and runs `functions.js` from https://localhost, to call the Jupyter service at https://localhost:8888/Excel, CORS configuration is required.
+
+For your own setup, replace `www.jupyterexcel.com`, `localhost`, and the username `jupyterhub` as appropriate. These values are configured in the JSON configuration file described above.
+
+## Prerequisites
+
+JupyterExcel requires **Python 3.9 or later**. Installing the package with pip
+also installs these runtime dependencies automatically:
+
+| Package | Required version |
+| --- | --- |
+| `jupyter-server` | `>=2,<3` |
+| `jupyter-client` | `>=8,<9` |
+| `ipykernel` | `>=6,<8` |
+| `tornado` | `>=6.3` |
+
+For a working deployment, you also need:
+
+- A Python kernel registered as `python3`, which JupyterExcel currently uses.
+  Check it with `jupyter kernelspec list`.
+- JupyterLab 4 if you want to edit notebooks in JupyterLab and use the bundled
+  JupyterExcel toolbar extension. Install it separately with
+  `python -m pip install "jupyterlab>=4,<5"`.
+- JupyterHub only for a multi-user deployment; it is not required for standalone
+  JupyterLab. Install JupyterExcel in each user's server environment.
+- Any libraries imported by your notebooks, installed in the environment used
+  by the `python3` kernel. Streamlit and pandas are not required by JupyterExcel
+  itself.
+- Microsoft Excel with support for Office.js custom functions and SharedRuntime
+  1.1, and permission to load the add-in manifest.
+- An HTTPS static web server, such as IIS or Nginx, to serve the generated add-in
+  files, with a certificate trusted by the computer running Excel. Configure
+  `assets.directory` and `assets.url` in the JSON file as described above, and
+  make the Jupyter API reachable from Excel over HTTPS.
+
+Install JupyterExcel in the Jupyter server environment. If your `python3` kernel
+uses a separate virtual environment, install JupyterExcel there too so notebook
+imports of its decorators work.
+
+The `build` and `twine` packages are release tools, not runtime dependencies.
+Install them in a separate release environment when building or publishing the
+package. Node.js is needed to rebuild the frontend, but not to install the
+Python package with its prebuilt JupyterLab extension.
 
 ## Documentation
 
