@@ -5,7 +5,7 @@
   },
   "assets": {
     "directory": "/var/www/jupyterexcel/excel-addin",
-    "url": "https://www.jupyterexcel.com/user/jupyterhub"
+    "url": "https://www.jupyterexcel.com/excel-addin/"
   },
   "addin": {
     "namespace": "Jupyter"
