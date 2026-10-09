@@ -2,7 +2,7 @@
 
 name = "jupyterexcel"
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 from .utils import jupyter_function, ribbon_function
 from .config import show_config

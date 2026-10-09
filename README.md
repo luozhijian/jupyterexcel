@@ -1,6 +1,6 @@
 ## jupyterexcel Package
 
-This Jupyter Server extension exposes functions in Jupyter notebooks through a REST API, allowing Excel to call them as worksheet formulas or task pane actions accessed from the ribbon. This version supports Python and JavaScript notebooks. JavaScript functions in notebooks can run locally within the Excel add-in javascript runtime only or calling back to the Jupyter server.
+This Jupyter Server extension exposes functions in Jupyter notebooks through a REST API, allowing Excel to call them as worksheet formulas or task pane actions accessed from the ribbon. This version supports Python and JavaScript notebooks. Python notebooks can specify which venv to run the functions. JavaScript functions in notebooks can run locally within the Excel add-in javascript runtime only or calling back to the Jupyter server.
 
 When the JupyterExcel server extension starts, it scans every notebook visible
 to the current Jupyter user. Functions decorated with [jupyter_function](https://jupyterexcel.com/excel-addin/jupyter_function.html) are
@@ -296,14 +296,46 @@ Install them in a separate release environment when building or publishing the
 package. Node.js is needed to rebuild the frontend, but not to install the
 Python package with its prebuilt JupyterLab extension.
 
+
+## Sample command starts Jupyter 
+Excel addin required https in the url in manifest.xml.  So, you need setup https access.  
+For linux, when you setup Nginx, please make sure https is enabled.  
+
+  ```
+   #sample jupyterhub.service file
+   [Unit]
+    Description=JupyterHub
+    After=syslog.target network.target
+
+    [Service]
+    Type=simple
+    User=jupyterhub
+    WorkingDirectory=/opt/jupyterhub/etc/jupyterhub
+
+    ExecStart=/opt/jupyterhub/bin/jupyterhub -f /opt/jupyterhub/etc/jupyterhub/jupyterhub_config.py
+
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+  ```
+
+For windows, plelase google and trust a pair of .key and .crt files.  then
+
+```
+  jupyter lab --ServerApp.certfile="C:\Users\xxxx\.office-addin-dev-certs\localhost.crt" --ServerApp.keyfile="C:\Users\xxxx\.office-addin-dev-certs\localhost.key" --ServerApp.port=8888 --ServerApp.port_retries=0 --ServerApp.allow_origin="https://localhost"
+```
+
+
 ## Documentation
 
-- [Development and testing](Markdowns/DEVELOPMENT.md)
-- [Architecture](Markdowns/ARCHITECTURE.md)
-- [Notebook actions](Markdowns/NOTEBOOK_ACTIONS.md)
-- [Built-in functions](Markdowns/BUILTIN_FUNCTIONS.md)
-- [Save and reload](Markdowns/SAVE_AND_RELOAD.md)
-- [JupyterHub automatic startup](Markdowns/HUB_AUTO_START.md)
+- [Development and testing](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/DEVELOPMENT.md)
+- [Architecture](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/ARCHITECTURE.md)
+- [Notebook actions](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/NOTEBOOK_ACTIONS.md)
+- [Built-in functions](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/BUILTIN_FUNCTIONS.md)
+- [Save and reload](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/SAVE_AND_RELOAD.md)
+- [JupyterHub automatic startup](https://github.com/luozhijian/jupyterexcel/blob/master/Markdowns/HUB_AUTO_START.md)
 
 ## Future Development Plan
 
@@ -312,8 +344,7 @@ Python package with its prebuilt JupyterLab extension.
 3. Support the latest Python multithreading features.
 4. Support multi-user deployments with a shared folder while retaining individual user releases.
 5. Minify the JavaScript code.
-6. Support multiple virtual environments.
-7. Save incoming data for future unit tests.
+6. Save incoming data for future unit tests.
 
 ## Reference
 
