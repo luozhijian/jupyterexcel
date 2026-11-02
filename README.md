@@ -343,7 +343,7 @@ For windows, plelase google and trust a pair of .key and .crt files.  then
 2. Improve kernel management, which currently starts a named kernel.
 3. Support the latest Python multithreading features.
 4. Support multi-user deployments with a shared folder while retaining individual user releases.
-5. Minify the JavaScript code directly or indirectly referenced in manifest.xml
+5. Minify the JavaScript code generated which will be directly or indirectly referenced in manifest.xml
 6. Save incoming data for future unit tests.
 
 ## Reference
