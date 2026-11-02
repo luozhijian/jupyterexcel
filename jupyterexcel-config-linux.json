@@ -50,7 +50,7 @@
       "javascript": {
         "language": "javascript",
         "kernel_name": "deno",
-        "min_kernels": 0,
+        "min_kernels": 1,
         "max_kernels": 3
       }
     }
